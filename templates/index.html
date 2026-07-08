@@ -17,14 +17,15 @@
         .player-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: bold; }
         .color-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-block; border: 1px solid #ccc; }
         
-        /* Direct Edit Score Styling */
-        .score-controls { display: flex; align-items: center; gap: 10px; }
-        .score-input { font-size: 24px; font-weight: bold; width: 60px; text-align: center; border: 1px solid transparent; background: transparent; margin: 0; padding: 4px; border-radius: 6px; -moz-appearance: textfield; }
-        .score-input:focus { outline: none; border-color: #007bff; background: #fff; box-shadow: 0 0 5px rgba(0,123,255,0.3); }
+        /* Direct Edit Score & Button Styling */
+        .score-controls { display: flex; align-items: center; gap: 4px; }
+        .score-input { font-size: 22px; font-weight: bold; width: 55px; text-align: center; border: 1px solid #ccc; background: #fff; margin: 0 6px; padding: 6px; border-radius: 6px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); -moz-appearance: textfield; }
+        .score-input:focus { outline: none; border-color: #007bff; box-shadow: 0 0 5px rgba(0,123,255,0.4); }
         .score-input::-webkit-outer-spin-button, .score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         
-        .score-btn { width: 40px; height: 40px; font-size: 20px; background: #e0e0e0; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0; padding: 0; }
-        .score-btn:hover { background: #ccc; }
+        .score-btn { width: 40px; height: 40px; font-size: 22px; background: #007bff; color: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin: 0; padding: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s, box-shadow 0.1s; }
+        .score-btn:hover { background: #0056b3; }
+        .score-btn:active { transform: translateY(2px); box-shadow: 0 0px 2px rgba(0,0,0,0.2); }
         
         .settings-header { display: flex; justify-content: space-between; align-items: center; }
         .settings-btn { width: auto; padding: 8px 15px; font-size: 14px; background: #6c757d; margin: 0; }
@@ -37,6 +38,9 @@
         .iteration-box { background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .iteration-box input { width: 60px; margin: 0; padding: 5px; text-align: center; }
         .hidden { display: none; }
+        
+        /* Helper text for settings */
+        .helper-text { font-size: 12px; color: #666; margin-top: -10px; margin-bottom: 15px; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -63,12 +67,17 @@
 
     <div id="settings-screen" class="card hidden">
         <h2>App Settings</h2>
+        
         <label>Vestaboard IP Address</label>
         <input type="text" id="cfg-ip" placeholder="e.g. 192.168.1.50">
+        
         <label>Local API Key</label>
         <input type="password" id="cfg-key" placeholder="Enter your Local API token">
+        
         <label>Fiestaboard UUID</label>
         <input type="text" id="cfg-uuid" placeholder="e.g. 79e0f461-351d-4b81-b9a1-f2abd3bba27b">
+        <p class="helper-text">Optional. Allows Pausing of the Fiestaboard automation while using this application so the scoreboard is not overwritten.</p>
+        
         <button class="btn-success" onclick="saveSettings()">Save Configuration</button>
         <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
         <p id="settings-status" style="text-align:center; font-size: 12px;"></p>
@@ -219,7 +228,6 @@
             document.getElementById('names-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
             
-            // Set the dynamic title on the page
             document.getElementById('live-game-title').innerText = activeGameName;
             
             renderScoreboard();
@@ -240,7 +248,7 @@
                         </div>
                         <div class="score-controls">
                             <button class="score-btn" onclick="updateScore(${index}, -1)">-</button>
-                            <input type="number" class="score-input" value="${player.score}" onchange="setDirectScore(${index}, this.value)">
+                            <input type="number" class="score-input" value="${player.score}" max="9999" onchange="setDirectScore(${index}, this.value)">
                             <button class="score-btn" onclick="updateScore(${index}, 1)">+</button>
                         </div>
                     </div>
@@ -250,13 +258,28 @@
 
         function updateScore(index, direction) {
             const increment = parseInt(document.getElementById('increment-val').value) || 1;
-            players[index].score += (direction * increment);
+            const newScore = players[index].score + (direction * increment);
+            
+            if (newScore > 9999) {
+                alert("The maximum score is 9999.");
+                return;
+            }
+            
+            players[index].score = newScore;
             renderScoreboard();
             sendToVestaboard();
         }
 
         function setDirectScore(index, value) {
-            players[index].score = parseInt(value) || 0;
+            const parsedVal = parseInt(value) || 0;
+            
+            if (parsedVal > 9999) {
+                alert("The maximum score is 9999.");
+                renderScoreboard(); 
+                return;
+            }
+            
+            players[index].score = parsedVal;
             renderScoreboard();
             sendToVestaboard();
         }
