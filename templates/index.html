@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vestaboard Score Tracker</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f9; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1, h2, h3 { text-align: center; }
+        label { font-weight: bold; font-size: 14px; color: #555; }
+        select, input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { background: #007bff; color: white; border: none; padding: 12px 20px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        .player-input-row { display: flex; gap: 10px; margin-bottom: 8px; }
+        .player-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .player-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: bold; }
+        .color-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-block; border: 1px solid #ccc; }
+        
+        /* Direct Edit Score Styling */
+        .score-controls { display: flex; align-items: center; gap: 10px; }
+        .score-input { font-size: 24px; font-weight: bold; width: 60px; text-align: center; border: 1px solid transparent; background: transparent; margin: 0; padding: 4px; border-radius: 6px; -moz-appearance: textfield; }
+        .score-input:focus { outline: none; border-color: #007bff; background: #fff; box-shadow: 0 0 5px rgba(0,123,255,0.3); }
+        .score-input::-webkit-outer-spin-button, .score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        .score-btn { width: 40px; height: 40px; font-size: 20px; background: #e0e0e0; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0; padding: 0; }
+        .score-btn:hover { background: #ccc; }
+        
+        .settings-header { display: flex; justify-content: space-between; align-items: center; }
+        .settings-btn { width: auto; padding: 8px 15px; font-size: 14px; background: #6c757d; margin: 0; }
+        .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-success { background: #28a745; }
+        .btn-danger { background: #dc3545; }
+        .btn-secondary { background: #6c757d; }
+        
+        .iteration-box { background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .iteration-box input { width: 60px; margin: 0; padding: 5px; text-align: center; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen" class="card">
+        <div class="settings-header">
+            <h1>Scoreboard Setup</h1>
+            <button class="settings-btn" onclick="openSettings()">⚙️ Settings</button>
+        </div>
+        
+        <label>Game Name</label>
+        <input type="text" id="game-name" value="SCORE" maxlength="22" placeholder="Displayed at top of board">
+
+        <label>Vestaboard Model</label>
+        <select id="board-type" onchange="updatePlayerMax()">
+            <option value="note">Vestaboard Note (3 Rows)</option>
+            <option value="standard">Standard Vestaboard (6 Rows)</option>
+        </select>
+
+        <label id="player-count-label">How many players? (Max 3)</label>
+        <input type="number" id="player-count" min="1" max="3" value="2">
+        <button onclick="generateNameInputs()">Next</button>
+    </div>
+
+    <div id="settings-screen" class="card hidden">
+        <h2>App Settings</h2>
+        <label>Vestaboard IP Address</label>
+        <input type="text" id="cfg-ip" placeholder="e.g. 192.168.1.50">
+        <label>Local API Key</label>
+        <input type="password" id="cfg-key" placeholder="Enter your Local API token">
+        <label>Fiestaboard UUID</label>
+        <input type="text" id="cfg-uuid" placeholder="e.g. 79e0f461-351d-4b81-b9a1-f2abd3bba27b">
+        <button class="btn-success" onclick="saveSettings()">Save Configuration</button>
+        <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+        <p id="settings-status" style="text-align:center; font-size: 12px;"></p>
+    </div>
+
+    <div id="names-screen" class="card hidden">
+        <h2>Enter Player Details</h2>
+        <div id="name-inputs"></div>
+        <button onclick="startGame()">Start Game</button>
+        <button class="btn-secondary" onclick="location.reload()">Start Over</button>
+    </div>
+
+    <div id="game-screen" class="card hidden">
+        <h2 id="live-game-title">Live Scoreboard</h2>
+        
+        <div class="iteration-box">
+            <label style="margin: 0;">Point Increment per click:</label>
+            <input type="number" id="increment-val" value="1" min="1">
+        </div>
+
+        <div id="scoreboard-container"></div>
+        
+        <hr style="border: 0; height: 1px; background: #eee; margin: 25px 0;">
+        
+        <h3>Game Controls</h3>
+        <button id="fiesta-btn" class="btn-warning" onclick="toggleFiesta()">Pause Fiestaboard</button>
+        
+        <div class="control-grid">
+            <button class="btn-danger" onclick="resetScores()">Reset Scores</button>
+            <button class="btn-secondary" onclick="location.reload()">New Game</button>
+        </div>
+        
+        <p id="status-text" style="text-align:center; font-size: 14px; font-weight: bold; color: #555; margin-top: 15px; min-height: 20px;"></p>
+    </div>
+
+    <script>
+        let players = [];
+        let selectedBoardType = "note";
+        let activeGameName = "SCORE";
+        let fiestaPaused = false;
+        
+        const vbColorsToHex = {
+            63: "#FF0000", 64: "#FF7F00", 65: "#FFFF00", 66: "#00FF00", 
+            67: "#0000FF", 68: "#8B00FF", 69: "#FFFFFF"
+        };
+
+        // --- SETTINGS LOGIC ---
+        function openSettings() {
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('settings-screen').classList.remove('hidden');
+            fetch('/api/config')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('cfg-ip').value = data.vestaboard_ip || '';
+                    document.getElementById('cfg-key').value = data.local_api_key || '';
+                    document.getElementById('cfg-uuid').value = data.fiestaboard_uuid || '';
+                });
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-screen').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
+            document.getElementById('settings-status').innerText = "";
+        }
+
+        function saveSettings() {
+            const payload = {
+                vestaboard_ip: document.getElementById('cfg-ip').value.trim(),
+                local_api_key: document.getElementById('cfg-key').value.trim(),
+                fiestaboard_uuid: document.getElementById('cfg-uuid').value.trim()
+            };
+            fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                const status = document.getElementById('settings-status');
+                status.innerText = "Settings saved successfully!";
+                status.style.color = "green";
+                setTimeout(closeSettings, 1000);
+            });
+        }
+
+        // --- GAME LOGIC ---
+        function updatePlayerMax() {
+            const boardType = document.getElementById('board-type').value;
+            const input = document.getElementById('player-count');
+            const label = document.getElementById('player-count-label');
+            
+            if (boardType === 'note') {
+                input.max = 3;
+                if (input.value > 3) input.value = 3;
+                label.innerText = "How many players? (Max 3)";
+            } else {
+                input.max = 6;
+                label.innerText = "How many players? (Max 6)";
+            }
+        }
+
+        function generateNameInputs() {
+            selectedBoardType = document.getElementById('board-type').value;
+            activeGameName = document.getElementById('game-name').value.trim() || "SCORE";
+            
+            const maxPlayers = selectedBoardType === 'note' ? 3 : 6;
+            const maxNameLen = selectedBoardType === 'note' ? 9 : 14;
+            let count = parseInt(document.getElementById('player-count').value);
+            count = Math.min(maxPlayers, Math.max(1, count));
+            
+            const container = document.getElementById('name-inputs');
+            container.innerHTML = '';
+            
+            for(let i=0; i<count; i++) {
+                const defaultColorOptions = [63, 67, 66, 65, 64, 68];
+                const defaultColor = defaultColorOptions[i % defaultColorOptions.length];
+
+                container.innerHTML += `
+                    <div class="player-input-row">
+                        <input type="text" id="name-${i}" placeholder="Player ${i+1} Name" maxlength="${maxNameLen}">
+                        <select id="color-${i}" style="width: 120px;">
+                            <option value="63" ${defaultColor === 63 ? 'selected' : ''}>Red</option>
+                            <option value="64" ${defaultColor === 64 ? 'selected' : ''}>Orange</option>
+                            <option value="65" ${defaultColor === 65 ? 'selected' : ''}>Yellow</option>
+                            <option value="66" ${defaultColor === 66 ? 'selected' : ''}>Green</option>
+                            <option value="67" ${defaultColor === 67 ? 'selected' : ''}>Blue</option>
+                            <option value="68" ${defaultColor === 68 ? 'selected' : ''}>Violet</option>
+                            <option value="69" ${defaultColor === 69 ? 'selected' : ''}>White</option>
+                        </select>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('names-screen').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const count = document.getElementById('name-inputs').children.length;
+            players = [];
+            
+            for(let i=0; i<count; i++) {
+                let name = document.getElementById(`name-${i}`).value.trim() || `Player ${i+1}`;
+                let colorCode = parseInt(document.getElementById(`color-${i}`).value);
+                players.push({ name: name, score: 0, color: colorCode });
+            }
+            
+            document.getElementById('names-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            
+            // Set the dynamic title on the page
+            document.getElementById('live-game-title').innerText = activeGameName;
+            
+            renderScoreboard();
+            sendToVestaboard();
+        }
+
+        function renderScoreboard() {
+            const container = document.getElementById('scoreboard-container');
+            container.innerHTML = '';
+            
+            players.forEach((player, index) => {
+                const colorHex = vbColorsToHex[player.color] || "#FF0000";
+                container.innerHTML += `
+                    <div class="player-row">
+                        <div class="player-info">
+                            <span class="color-dot" style="background-color: ${colorHex}"></span>
+                            ${player.name}
+                        </div>
+                        <div class="score-controls">
+                            <button class="score-btn" onclick="updateScore(${index}, -1)">-</button>
+                            <input type="number" class="score-input" value="${player.score}" onchange="setDirectScore(${index}, this.value)">
+                            <button class="score-btn" onclick="updateScore(${index}, 1)">+</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function updateScore(index, direction) {
+            const increment = parseInt(document.getElementById('increment-val').value) || 1;
+            players[index].score += (direction * increment);
+            renderScoreboard();
+            sendToVestaboard();
+        }
+
+        function setDirectScore(index, value) {
+            players[index].score = parseInt(value) || 0;
+            renderScoreboard();
+            sendToVestaboard();
+        }
+
+        function resetScores() {
+            players.forEach(p => p.score = 0);
+            renderScoreboard();
+            sendToVestaboard();
+        }
+
+        function setStatus(msg) {
+            const status = document.getElementById('status-text');
+            status.innerText = msg;
+            setTimeout(() => { if(status.innerText === msg) status.innerText = ""; }, 3000);
+        }
+
+        function sendToVestaboard() {
+            setStatus("Updating board...");
+            
+            fetch('/update_board', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    players: players, 
+                    board_type: selectedBoardType,
+                    game_name: activeGameName
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    setStatus("Board Updated!");
+                } else {
+                    setStatus("Error: " + data.message);
+                }
+            })
+            .catch(() => setStatus("Network Error updating board."));
+        }
+
+        function toggleFiesta() {
+            const newState = !fiestaPaused;
+            const btn = document.getElementById('fiesta-btn');
+            setStatus("Contacting Fiestaboard Server...");
+            
+            fetch('/toggle_fiestaboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paused: newState })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    fiestaPaused = newState;
+                    if(fiestaPaused) {
+                        btn.innerText = "Resume Fiestaboard";
+                        btn.className = "btn-success";
+                    } else {
+                        btn.innerText = "Pause Fiestaboard";
+                        btn.className = "btn-warning";
+                    }
+                    setStatus(data.message);
+                } else {
+                    setStatus("Error: " + data.message);
+                }
+            })
+            .catch(() => setStatus("Network Error toggling Fiestaboard."));
+        }
+    </script>
+</body>
+</html>
