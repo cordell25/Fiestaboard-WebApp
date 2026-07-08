@@ -9,19 +9,28 @@
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h1, h2, h3 { text-align: center; }
         label { font-weight: bold; font-size: 14px; color: #555; }
+        
+        /* General Inputs */
         select, input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        
         button { background: #007bff; color: white; border: none; padding: 12px 20px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px; font-weight: bold; }
         button:hover { opacity: 0.9; }
+        
+        /* Player Rows Setup */
         .player-input-row { display: flex; gap: 10px; margin-bottom: 8px; }
         .player-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .player-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: bold; }
-        .color-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-block; border: 1px solid #ccc; }
+        
+        /* Name Section: flex: 1 pushes the buttons to the right and creates space */
+        .player-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: bold; flex: 1; padding-right: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .color-dot { min-width: 20px; height: 20px; border-radius: 50%; display: inline-block; border: 1px solid #ccc; }
         
         /* Direct Edit Score & Button Styling */
-        .score-controls { display: flex; align-items: center; gap: 4px; }
-        .score-input { font-size: 22px; font-weight: bold; width: 55px; text-align: center; border: 1px solid #ccc; background: #fff; margin: 0 6px; padding: 6px; border-radius: 6px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); -moz-appearance: textfield; }
-        .score-input:focus { outline: none; border-color: #007bff; box-shadow: 0 0 5px rgba(0,123,255,0.4); }
-        .score-input::-webkit-outer-spin-button, .score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .score-controls { display: flex; align-items: center; justify-content: flex-end; }
+        
+        /* High specificity to override the general 100% width rule */
+        input[type="number"].score-input { font-size: 22px; font-weight: bold; width: 80px; text-align: center; border: 1px solid #ccc; background: #fff; margin: 0 12px; padding: 6px; border-radius: 6px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); -moz-appearance: textfield; }
+        input[type="number"].score-input:focus { outline: none; border-color: #007bff; box-shadow: 0 0 5px rgba(0,123,255,0.4); }
+        input[type="number"].score-input::-webkit-outer-spin-button, input[type="number"].score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         
         .score-btn { width: 40px; height: 40px; font-size: 22px; background: #007bff; color: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin: 0; padding: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s, box-shadow 0.1s; }
         .score-btn:hover { background: #0056b3; }
@@ -36,10 +45,10 @@
         .btn-secondary { background: #6c757d; }
         
         .iteration-box { background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .iteration-box input { width: 60px; margin: 0; padding: 5px; text-align: center; }
-        .hidden { display: none; }
+        /* Fix the increment box width as well */
+        .iteration-box input[type="number"] { width: 70px; margin: 0; padding: 6px; text-align: center; }
         
-        /* Helper text for settings */
+        .hidden { display: none; }
         .helper-text { font-size: 12px; color: #666; margin-top: -10px; margin-bottom: 15px; line-height: 1.4; }
     </style>
 </head>
