@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wheel of Fortune</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f9; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: center; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .home-btn { width: auto; padding: 8px 15px; font-size: 14px; background: #6c757d; margin: 0; text-decoration: none; color: white; border-radius: 6px; display: inline-block; font-weight: bold; }
+        h1 { margin: 0; flex-grow: 1; text-align: center; padding-right: 80px; font-size: 24px; }
+        
+        .btn-primary, .btn-action {
+            background-color: #007bff; border: none; color: white; padding: 15px 32px; text-align: center;
+            text-decoration: none; display: inline-block; font-size: 16px; margin: 10px; cursor: pointer;
+            border-radius: 8px; font-weight: bold; transition: opacity 0.2s; width: 100%; box-sizing: border-box;
+        }
+        .btn-primary:hover, .btn-action:hover { opacity: 0.9; }
+        
+        .btn-action { width: auto; flex: 1; min-width: 120px; padding: 12px 15px; margin: 5px; }
+        .btn-action.solve { background-color: #dc3545; }
+        .btn-action.auto { background-color: #6f42c1; }
+        .btn-action.new { background-color: #28a745; }
+        .btn-action.end { background-color: #6c757d; }
+        
+        #game-board { display: none; }
+        
+        .keyboard-section { margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 10px; border: 1px solid #eee; }
+        .keyboard-section h3 { margin-top: 0; color: #666; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .keyboard { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        
+        .key {
+            background-color: #333; color: white; border: none; border-radius: 6px; padding: 12px;
+            font-size: 18px; cursor: pointer; font-weight: bold; transition: background-color 0.1s, transform 0.1s;
+            min-width: 45px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .key:active { transform: translateY(2px); box-shadow: none; }
+        .key:disabled { background-color: #e0e0e0; color: #999; cursor: not-allowed; box-shadow: none; }
+        
+        .controls { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 25px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="header-bar">
+            <a href="/" class="home-btn">🏠 Home</a>
+            <h1>Wheel of Fortune</h1>
+        </div>
+
+        <div id="start-screen">
+            <p style="color: #666; margin-bottom: 25px;">Ready to spin the board?</p>
+            <button class="btn-primary" onclick="startGame()">Start Game</button>
+        </div>
+
+        <div id="game-board">
+            <div class="keyboard-section">
+                <h3>Vowels</h3>
+                <div class="keyboard" id="vowels"></div>
+            </div>
+
+            <div class="keyboard-section">
+                <h3>Consonants</h3>
+                <div class="keyboard" id="consonants"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-action auto" onclick="autoSolveGame()">Auto-Solve</button>
+                <button class="btn-action solve" onclick="solveGame()">Solve Now</button>
+                <button class="btn-action new" onclick="newGame()">New Game</button>
+                <button class="btn-action end" onclick="endGame()">End Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function sendCommand(payload) {
+            try {
+                const response = await fetch('/api/wheel/command', {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    console.error("Failed to send command");
+                }
+            } catch (error) {
+                console.error("Network error:", error);
+                alert("Could not reach the web app server.");
+            }
+        }
+
+        async function clearTriggers() {
+            try {
+                await fetch('/api/wheel/clear', { method: "POST" });
+            } catch (error) {
+                console.error("Network error clearing triggers:", error);
+            }
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-board').style.display = 'block';
+            buildKeyboard();
+            sendCommand({ game: "start" });
+        }
+
+        function newGame() {
+            buildKeyboard(); 
+            sendCommand({ game: "start" });
+        }
+
+        function solveGame() {
+            const keys = document.querySelectorAll('.key');
+            keys.forEach(key => key.disabled = true);
+            sendCommand({ game: "solve" });
+        }
+
+        function autoSolveGame() {
+            const keys = document.querySelectorAll('.key');
+            keys.forEach(key => key.disabled = true);
+            sendCommand({ game: "autosolve" });
+        }
+
+        function endGame() {
+            clearTriggers();
+            document.getElementById('game-board').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'block';
+        }
+
+        function guessLetter(letter, buttonElement) {
+            buttonElement.disabled = true; 
+            sendCommand({ game: "guess", letter: letter });
+        }
+
+        function buildKeyboard() {
+            const vowelsDiv = document.getElementById('vowels');
+            const consonantsDiv = document.getElementById('consonants');
+            
+            vowelsDiv.innerHTML = ''; 
+            consonantsDiv.innerHTML = ''; 
+            
+            const vowels = ['A', 'E', 'I', 'O', 'U'];
+            const consonants = ['B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'Z'];
+            
+            vowels.forEach(letter => {
+                const btn = document.createElement('button');
+                btn.className = 'key';
+                btn.innerText = letter;
+                btn.onclick = () => guessLetter(letter, btn);
+                vowelsDiv.appendChild(btn);
+            });
+
+            consonants.forEach(letter => {
+                const btn = document.createElement('button');
+                btn.className = 'key';
+                btn.innerText = letter;
+                btn.onclick = () => guessLetter(letter, btn);
+                consonantsDiv.appendChild(btn);
+            });
+        }
+    </script>
+</body>
+</html>
