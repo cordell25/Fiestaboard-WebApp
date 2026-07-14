@@ -38,7 +38,7 @@ wheel_state = {
     "answer": "",
     "category_name": "",
     "revealed_letters": set(),
-    "board_type": "note" # Default to note, can be updated via config
+    "board_type": "note" 
 }
 
 def load_random_puzzle(category_file=None):
@@ -54,7 +54,7 @@ def load_random_puzzle(category_file=None):
             answer = random.choice(answers).upper()
     except Exception as e:
         print(f"Error loading {filepath}: {e}")
-        answer = "TEST PUZZLE" # Fallback if file is missing
+        answer = "TEST PUZZLE" 
         cat_name = "ERROR LOADING DATA"
         
     wheel_state["answer"] = answer
@@ -75,16 +75,13 @@ def send_to_vestaboard(board_matrix):
     response.raise_for_status()
 
 def build_puzzle_board():
-    # Note board sizing by default. If standard, adjust cols/rows.
     cols, rows = 15, 3 
-    
     answer = wheel_state["answer"]
     words = answer.split(' ')
     lines = []
     current_line = []
     current_len = 0
     
-    # Word Wrapping Logic
     for word in words:
         space_needed = 1 if current_line else 0
         if current_len + len(word) + space_needed <= cols:
@@ -100,21 +97,19 @@ def build_puzzle_board():
     show_category = len(lines) < rows
     board = [[0]*cols for _ in range(rows)]
 
-    # Layout the puzzle
     for row_idx, line in enumerate(lines):
         if row_idx >= rows - (1 if show_category else 0):
-            break # Avoid overflowing the board
+            break 
             
-        padding = (cols - len(line)) // 2 # Center horizontally
+        padding = (cols - len(line)) // 2 
         for col_idx, char in enumerate(line):
             if char == ' ':
-                board[row_idx][padding + col_idx] = 0 # Blank
+                board[row_idx][padding + col_idx] = 0 
             elif char in wheel_state["revealed_letters"] or not char.isalpha():
-                board[row_idx][padding + col_idx] = VB_CHARS.get(char, 0) # Revealed
+                board[row_idx][padding + col_idx] = VB_CHARS.get(char, 0) 
             else:
-                board[row_idx][padding + col_idx] = 69 # White Block
+                board[row_idx][padding + col_idx] = 69 
 
-    # Add category to the bottom row if space permits
     if show_category:
         cat_str = wheel_state["category_name"][:cols].center(cols)
         for j, char in enumerate(cat_str):
@@ -183,30 +178,10 @@ def wheel_start():
     cat_file = request.json.get('category', 'random')
     cat_name, _ = load_random_puzzle(cat_file)
     
-    # Generate the initial "CATEGORY" announcement board
-    cols, rows = 15, 3
-    board = [[0]*cols for _ in range(rows)]
-    
-    title = "CATEGORY".center(cols)
-    for j, char in enumerate(title):
-        board[0][j] = VB_CHARS.get(char, 0)
-        
-    cat_str = cat_name[:cols].center(cols)
-    for j, char in enumerate(cat_str):
-        board[2][j] = VB_CHARS.get(char, 0)
-        
-    try:
-        send_to_vestaboard(board)
-        return jsonify({"status": "success", "category": cat_name})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/wheel/puzzle', methods=['POST'])
-def wheel_puzzle():
     try:
         board = build_puzzle_board()
         send_to_vestaboard(board)
-        return jsonify({"status": "success"})
+        return jsonify({"status": "success", "category": cat_name})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -224,9 +199,27 @@ def wheel_guess():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/wheel/reveal_random', methods=['POST'])
+def wheel_reveal_random():
+    answer = wheel_state["answer"]
+    # Find all letters in the answer that haven't been revealed yet
+    unrevealed = set(char for char in answer if char.isalpha() and char not in wheel_state["revealed_letters"])
+    
+    if not unrevealed:
+        return jsonify({"status": "complete"})
+        
+    chosen_letter = random.choice(list(unrevealed))
+    wheel_state["revealed_letters"].add(chosen_letter)
+    
+    try:
+        board = build_puzzle_board()
+        send_to_vestaboard(board)
+        return jsonify({"status": "success", "letter": chosen_letter})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/wheel/solve', methods=['POST'])
 def wheel_solve():
-    # Add all uppercase letters to revealed set to show everything
     wheel_state["revealed_letters"].update([chr(i) for i in range(65, 91)])
     try:
         board = build_puzzle_board()
@@ -236,7 +229,6 @@ def wheel_solve():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # --- REMAINING ROUTES (SCOREBOARD & TIMER) ---
-# ... Keep your existing /update_board, /toggle_fiestaboard, and /api/timer/start logic here
 @app.route('/update_board', methods=['POST'])
 def update_board():
     cfg = get_config()
