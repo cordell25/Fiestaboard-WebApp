@@ -1,4 +1,4 @@
-# Project: Vestaboard Score Tracker
+# Project: Vestaboard Central Hub
 # Maintainer: cordell25
 
 from flask import Flask, render_template, request, jsonify
@@ -33,9 +33,25 @@ def save_config(data):
     with open(CONFIG_FILE, 'w') as f:
         json.dump(data, f, indent=4)
 
+# --- PAGE ROUTES ---
+
 @app.route('/')
-def index():
-    return render_template('index.html')
+def home():
+    return render_template('home.html')
+
+@app.route('/scoreboard')
+def scoreboard():
+    return render_template('scoreboard.html')
+
+@app.route('/wheel')
+def wheel():
+    return render_template('wheel.html')
+
+@app.route('/timer')
+def timer():
+    return render_template('timer.html')
+
+# --- API ROUTES ---
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def handle_config():
@@ -57,7 +73,6 @@ def update_board():
     board_type = data.get('board_type', 'note')
     game_name = data.get('game_name', 'SCORE').upper()
     
-    # Configure dimensions and determine if there is room for the Title Row
     show_title = False
     if board_type == 'note':
         rows, cols = 3, 15
@@ -71,14 +86,12 @@ def update_board():
     board = [[0 for _ in range(cols)] for _ in range(rows)]
     current_row = 0
     
-    # Render Game Name at the top if there is space
     if show_title:
-        title_str = game_name[:cols].center(cols) # Centers the text based on board width
+        title_str = game_name[:cols].center(cols) 
         for j, char in enumerate(title_str):
             board[current_row][j] = VB_CHARS.get(char, 0)
         current_row += 1
     
-    # Render Players
     for i, player in enumerate(players):
         if current_row >= rows: break 
         
