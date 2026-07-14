@@ -28,11 +28,12 @@
         
         .btn-action { width: auto; flex: 1; min-width: 120px; padding: 12px 15px; margin: 5px; }
         .btn-action.solve { background-color: #dc3545; }
+        .btn-action.auto { background-color: #6f42c1; } /* Purple for Auto-Solve */
         .btn-action.new { background-color: #28a745; }
         
-        #game-board, #timer-screen { display: none; }
+        #game-board { display: none; }
         
-        .timer-display { font-size: 48px; font-weight: bold; color: #007bff; margin: 20px 0; }
+        .category-display { color: #007bff; text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: bold; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
 
         .keyboard-section { margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 10px; border: 1px solid #eee; }
         .keyboard-section h3 { margin-top: 0; color: #666; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
@@ -71,14 +72,9 @@
             <p id="setup-status" style="color: red; font-size: 14px; margin-top: 10px;"></p>
         </div>
 
-        <div id="timer-screen">
-            <h2 id="timer-category-text" style="color: #555;">CATEGORY</h2>
-            <p style="color: #666; margin-top: 5px;">Showing on Vestaboard...</p>
-            <div id="countdown" class="timer-display">15</div>
-            <p style="font-size: 14px; color: #999;">Puzzle will appear automatically.</p>
-        </div>
-
         <div id="game-board">
+            <div id="current-category" class="category-display">CATEGORY</div>
+            
             <div class="keyboard-section">
                 <h3>Vowels</h3>
                 <div class="keyboard" id="vowels"></div>
@@ -87,8 +83,10 @@
                 <h3>Consonants</h3>
                 <div class="keyboard" id="consonants"></div>
             </div>
+            
             <div class="controls">
-                <button class="btn-action solve" onclick="solveGame()">Solve Puzzle</button>
+                <button id="auto-solve-btn" class="btn-action auto" onclick="startAutoSolve()">Auto-Solve</button>
+                <button class="btn-action solve" onclick="solveGame()">Solve Now</button>
                 <button class="btn-action new" onclick="location.reload()">End / New Game</button>
             </div>
         </div>
@@ -97,6 +95,7 @@
     <script>
         let activeBoardUuid = '';
         let isAutomationPaused = false;
+        let autoSolveInterval;
 
         document.addEventListener('DOMContentLoaded', () => {
             initApp();
@@ -194,9 +193,9 @@
             .then(data => {
                 if (data.status === 'success') {
                     document.getElementById('start-screen').style.display = 'none';
-                    document.getElementById('timer-screen').style.display = 'block';
-                    document.getElementById('timer-category-text').innerText = data.category;
-                    runCountdown(15);
+                    document.getElementById('game-board').style.display = 'block';
+                    document.getElementById('current-category').innerText = data.category;
+                    buildKeyboard();
                 } else {
                     document.getElementById('setup-status').innerText = "Error: " + data.message;
                     startBtn.disabled = false;
@@ -208,37 +207,42 @@
             });
         }
 
-        function runCountdown(seconds) {
-            const display = document.getElementById('countdown');
-            display.innerText = seconds;
-            
-            const timer = setInterval(() => {
-                seconds--;
-                display.innerText = seconds;
-                
-                if (seconds <= 0) {
-                    clearInterval(timer);
-                    showPuzzle();
-                }
-            }, 1000);
+        function solveGame() {
+            if (autoSolveInterval) clearInterval(autoSolveInterval);
+            const keys = document.querySelectorAll('.key');
+            keys.forEach(key => key.disabled = true);
+            document.getElementById('auto-solve-btn').disabled = true;
+            fetch('/api/wheel/solve', { method: "POST" });
         }
-
-        function showPuzzle() {
-            fetch('/api/wheel/puzzle', { method: "POST" })
+        
+        function startAutoSolve() {
+            // Disable buttons so the user can't interfere while it auto-plays
+            const keys = document.querySelectorAll('.key');
+            keys.forEach(key => key.disabled = true);
+            document.getElementById('auto-solve-btn').disabled = true;
+            
+            // Reveal first letter immediately, then loop every 14s
+            revealRandomLetter();
+            autoSolveInterval = setInterval(revealRandomLetter, 14000);
+        }
+        
+        function revealRandomLetter() {
+            fetch('/api/wheel/reveal_random', { method: "POST" })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        document.getElementById('timer-screen').style.display = 'none';
-                        document.getElementById('game-board').style.display = 'block';
-                        buildKeyboard();
+                        // Find the button for the newly revealed letter and turn it green
+                        const keys = document.querySelectorAll('.key');
+                        keys.forEach(btn => {
+                            if (btn.innerText === data.letter) {
+                                btn.style.backgroundColor = '#28a745';
+                                btn.style.color = '#fff';
+                            }
+                        });
+                    } else if (data.status === 'complete') {
+                        clearInterval(autoSolveInterval);
                     }
                 });
-        }
-
-        function solveGame() {
-            const keys = document.querySelectorAll('.key');
-            keys.forEach(key => key.disabled = true);
-            fetch('/api/wheel/solve', { method: "POST" });
         }
 
         function guessLetter(letter, buttonElement) {
