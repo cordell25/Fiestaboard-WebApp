@@ -34,21 +34,13 @@
         .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .home-btn { width: auto; padding: 8px 15px; font-size: 14px; background: #6c757d; margin: 0; text-decoration: none; color: white; border-radius: 6px; display: inline-block; font-weight: bold; }
         
+        .pause-btn { background: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 18px; min-width: 45px; transition: background-color 0.2s; margin-top: 0; width: auto; }
+        .pause-btn:disabled { opacity: 0.3; cursor: not-allowed; background: #6c757d !important; }
+        .pause-btn:hover:not(:disabled) { opacity: 0.9; }
+
         .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; margin-bottom: 10px; }
-        .btn-warning { background: #ffc107; color: black; }
-        .btn-success { background: #28a745; }
         .btn-danger { background: #dc3545; }
         .btn-secondary { background: #6c757d; }
-
-        /* New beefy Return to Home button */
-        .btn-home-large {
-            background-color: #343a40; color: white; border: none; padding: 15px 20px;
-            width: 100%; border-radius: 8px; cursor: pointer; font-size: 18px; margin-top: 15px;
-            font-weight: bold; display: block; text-align: center; text-decoration: none;
-            box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: opacity 0.2s, transform 0.1s;
-        }
-        .btn-home-large:hover { opacity: 0.9; }
-        .btn-home-large:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
         
         .iteration-box { background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .iteration-box input[type="number"] { width: 70px; margin: 0; padding: 6px; text-align: center; }
@@ -86,7 +78,11 @@
     </div>
 
     <div id="game-screen" class="card hidden">
-        <h2 id="live-game-title">Live Scoreboard</h2>
+        <div class="header-bar">
+            <a href="/" class="home-btn">🏠 Home</a>
+            <h2 id="live-game-title" style="margin: 0; flex-grow: 1; text-align: center;">Live Scoreboard</h2>
+            <button id="global-pause-btn" class="pause-btn" onclick="togglePause()" disabled title="Loading...">⏸️</button>
+        </div>
         
         <div class="iteration-box">
             <label style="margin: 0;">Point Increment per click:</label>
@@ -98,15 +94,10 @@
         <hr style="border: 0; height: 1px; background: #eee; margin: 25px 0;">
         
         <h3>Game Controls</h3>
-        
         <div class="control-grid">
             <button class="btn-danger" onclick="resetScores()">Reset Scores</button>
             <button class="btn-secondary" onclick="location.reload()">New Game</button>
         </div>
-        
-        <button id="fiesta-btn" class="btn-warning" onclick="toggleFiesta()">Pause Fiestaboard</button>
-        
-        <a href="/" class="btn-home-large">Return to Home</a>
         
         <p id="status-text" style="text-align:center; font-size: 14px; font-weight: bold; color: #555; margin-top: 15px; min-height: 20px;"></p>
     </div>
@@ -115,13 +106,97 @@
         let players = [];
         let selectedBoardType = "note";
         let activeGameName = "SCORE";
-        let fiestaPaused = false;
+        
+        let activeBoardUuid = '';
+        let isAutomationPaused = false;
         
         const vbColorsToHex = {
             63: "#FF0000", 64: "#FF7F00", 65: "#FFFF00", 66: "#00FF00", 
             67: "#0000FF", 68: "#8B00FF", 69: "#FFFFFF"
         };
 
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+        });
+
+        // --- PAUSE AUTOMATION LOGIC ---
+        function initApp() {
+            fetch('/api/config')
+                .then(res => res.json())
+                .then(configData => {
+                    activeBoardUuid = configData.fiestaboard_uuid || '';
+                    if (activeBoardUuid) {
+                        getPauseStatus();
+                    } else {
+                        updatePauseButtonUI(null); 
+                    }
+                })
+                .catch(err => console.error("Error fetching config:", err));
+        }
+
+        function getPauseStatus() {
+            fetch('http://fiestapi.local:4420/api/settings/board')
+                .then(res => res.json())
+                .then(data => {
+                    const boardsList = data.boards || (data.settings && data.settings.boards) || [];
+                    const matchedBoard = boardsList.find(b => b.id === activeBoardUuid);
+                    
+                    if (matchedBoard) {
+                        isAutomationPaused = matchedBoard.paused;
+                        updatePauseButtonUI(isAutomationPaused);
+                    } else {
+                        updatePauseButtonUI(null);
+                    }
+                })
+                .catch(() => updatePauseButtonUI(null));
+        }
+
+        function togglePause() {
+            if (!activeBoardUuid) return;
+            const btn = document.getElementById('global-pause-btn');
+            btn.disabled = true; 
+            const nextState = !isAutomationPaused;
+
+            fetch(`http://fiestapi.local:4420/api/settings/board/${activeBoardUuid}/pause`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paused: nextState })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success' || data.paused !== undefined) {
+                    isAutomationPaused = data.paused;
+                    updatePauseButtonUI(isAutomationPaused);
+                }
+            })
+            .catch(() => {
+                alert("Could not update pause status.");
+                btn.disabled = false;
+            });
+        }
+
+        function updatePauseButtonUI(pausedState) {
+            const btn = document.getElementById('global-pause-btn');
+            if (pausedState === null) {
+                btn.disabled = true;
+                btn.innerText = '⏸️';
+                btn.style.backgroundColor = '#6c757d';
+                btn.title = 'Setup a Fiestaboard in settings to use';
+                return;
+            }
+            btn.disabled = false;
+            btn.title = pausedState ? 'Automation is Paused. Click to Resume.' : 'Automation is Running. Click to Pause.';
+            
+            if (pausedState) {
+                btn.innerText = '▶️';
+                btn.style.backgroundColor = '#dc3545'; 
+            } else {
+                btn.innerText = '⏸️';
+                btn.style.backgroundColor = '#28a745'; 
+            }
+        }
+
+        // --- SCOREBOARD LOGIC ---
         function updatePlayerMax() {
             const boardType = document.getElementById('board-type').value;
             const input = document.getElementById('player-count');
@@ -217,12 +292,7 @@
         function updateScore(index, direction) {
             const increment = parseInt(document.getElementById('increment-val').value) || 1;
             const newScore = players[index].score + (direction * increment);
-            
-            if (newScore > 9999) {
-                alert("The maximum score is 9999.");
-                return;
-            }
-            
+            if (newScore > 9999) { alert("The maximum score is 9999."); return; }
             players[index].score = newScore;
             renderScoreboard();
             sendToVestaboard();
@@ -230,13 +300,7 @@
 
         function setDirectScore(index, value) {
             const parsedVal = parseInt(value) || 0;
-            
-            if (parsedVal > 9999) {
-                alert("The maximum score is 9999.");
-                renderScoreboard(); 
-                return;
-            }
-            
+            if (parsedVal > 9999) { alert("The maximum score is 9999."); renderScoreboard(); return; }
             players[index].score = parsedVal;
             renderScoreboard();
             sendToVestaboard();
@@ -256,7 +320,6 @@
 
         function sendToVestaboard() {
             setStatus("Updating board...");
-            
             fetch('/update_board', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -268,42 +331,10 @@
             })
             .then(res => res.json())
             .then(data => {
-                if(data.status === 'success') {
-                    setStatus("Board Updated!");
-                } else {
-                    setStatus("Error: " + data.message);
-                }
+                if(data.status === 'success') { setStatus("Board Updated!"); } 
+                else { setStatus("Error: " + data.message); }
             })
             .catch(() => setStatus("Network Error updating board."));
-        }
-
-        function toggleFiesta() {
-            const newState = !fiestaPaused;
-            const btn = document.getElementById('fiesta-btn');
-            setStatus("Contacting Fiestaboard Server...");
-            
-            fetch('/toggle_fiestaboard', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ paused: newState })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.status === 'success') {
-                    fiestaPaused = newState;
-                    if(fiestaPaused) {
-                        btn.innerText = "Resume Fiestaboard";
-                        btn.className = "btn-success";
-                    } else {
-                        btn.innerText = "Pause Fiestaboard";
-                        btn.className = "btn-warning";
-                    }
-                    setStatus(data.message);
-                } else {
-                    setStatus("Error: " + data.message);
-                }
-            })
-            .catch(() => setStatus("Network Error toggling Fiestaboard."));
         }
     </script>
 </body>
