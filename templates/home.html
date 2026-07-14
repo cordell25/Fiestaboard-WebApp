@@ -31,7 +31,7 @@
         /* Settings Menu Styling */
         h2 { text-align: center; margin-top: 0; }
         label { font-weight: bold; font-size: 14px; color: #555; display: block; margin-top: 10px; }
-        input[type="text"], input[type="password"] { width: 100%; padding: 10px; margin: 8px 0 5px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        input[type="text"], input[type="password"], select { width: 100%; padding: 10px; margin: 8px 0 5px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; background-color: white; }
         .helper-text { font-size: 12px; color: #666; margin-top: 0px; margin-bottom: 15px; line-height: 1.4; }
         .btn-success { background: #28a745; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-bottom: 10px; margin-top: 10px; }
         .btn-secondary { background: #6c757d; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
@@ -77,15 +77,19 @@
         <label>Local API Key</label>
         <input type="password" id="cfg-key" placeholder="Enter your Local API token">
         
-        <label>Fiestaboard UUID</label>
-        <input type="text" id="cfg-uuid" placeholder="e.g. 79e0f461-351d-4b81-b9a1-f2abd3bba27b">
+        <label>Fiestaboard Selection</label>
+        <select id="cfg-uuid">
+            <option value="">Loading boards...</option>
+        </select>
         <p class="helper-text">Optional. Allows Pausing of the Fiestaboard automation while using apps so the board is not overwritten.</p>
         
         <hr style="border: 0; height: 1px; background: #eee; margin: 15px 0;">
 
-        <label>Timer Page ID</label>
-        <input type="text" id="cfg-timer" placeholder="e.g. 12345678-abcd-1234...">
-        <p class="helper-text">The FiestaBoard PageID to use for the Timer display.</p>
+        <label>Timer Page</label>
+        <select id="cfg-timer">
+            <option value="">Loading pages...</option>
+        </select>
+        <p class="helper-text">The FiestaBoard Page to use for the Timer display.</p>
         
         <button class="btn-success" onclick="saveSettings()">Save Configuration</button>
         <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
@@ -97,13 +101,58 @@
             document.getElementById('main-screen').classList.add('hidden');
             document.getElementById('settings-screen').classList.remove('hidden');
             
+            // 1. Fetch saved configuration
             fetch('/api/config')
                 .then(res => res.json())
-                .then(data => {
-                    document.getElementById('cfg-ip').value = data.vestaboard_ip || '';
-                    document.getElementById('cfg-key').value = data.local_api_key || '';
-                    document.getElementById('cfg-uuid').value = data.fiestaboard_uuid || '';
-                    document.getElementById('cfg-timer').value = data.timer_page_id || '';
+                .then(configData => {
+                    document.getElementById('cfg-ip').value = configData.vestaboard_ip || '';
+                    document.getElementById('cfg-key').value = configData.local_api_key || '';
+                    
+                    // 2. Fetch Boards from API and populate dropdown
+                    fetch('/api/proxy/boards')
+                        .then(res => res.json())
+                        .then(boards => {
+                            const uuidSelect = document.getElementById('cfg-uuid');
+                            uuidSelect.innerHTML = '<option value="">None (Optional)</option>';
+                            
+                            if (Array.isArray(boards)) {
+                                boards.forEach(board => {
+                                    const opt = document.createElement('option');
+                                    opt.value = board.id;
+                                    opt.innerText = `${board.name} (${board.device_type})`;
+                                    if (board.id === configData.fiestaboard_uuid) {
+                                        opt.selected = true;
+                                    }
+                                    uuidSelect.appendChild(opt);
+                                });
+                            }
+                        })
+                        .catch(() => {
+                            document.getElementById('cfg-uuid').innerHTML = '<option value="">Error loading boards</option>';
+                        });
+
+                    // 3. Fetch Pages from API and populate dropdown
+                    fetch('/api/proxy/pages')
+                        .then(res => res.json())
+                        .then(pages => {
+                            const timerSelect = document.getElementById('cfg-timer');
+                            timerSelect.innerHTML = '<option value="">None (Optional)</option>';
+                            
+                            if (Array.isArray(pages)) {
+                                pages.forEach(page => {
+                                    const opt = document.createElement('option');
+                                    opt.value = page.id;
+                                    opt.innerText = page.name;
+                                    if (page.id === configData.timer_page_id) {
+                                        opt.selected = true;
+                                    }
+                                    timerSelect.appendChild(opt);
+                                });
+                            }
+                        })
+                        .catch(() => {
+                            document.getElementById('cfg-timer').innerHTML = '<option value="">Error loading pages</option>';
+                        });
                 });
         }
 
@@ -117,8 +166,8 @@
             const payload = {
                 vestaboard_ip: document.getElementById('cfg-ip').value.trim(),
                 local_api_key: document.getElementById('cfg-key').value.trim(),
-                fiestaboard_uuid: document.getElementById('cfg-uuid').value.trim(),
-                timer_page_id: document.getElementById('cfg-timer').value.trim()
+                fiestaboard_uuid: document.getElementById('cfg-uuid').value, // This is now a dropdown value
+                timer_page_id: document.getElementById('cfg-timer').value   // This is now a dropdown value
             };
 
             fetch('/api/config', {
