@@ -34,11 +34,21 @@
         .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .home-btn { width: auto; padding: 8px 15px; font-size: 14px; background: #6c757d; margin: 0; text-decoration: none; color: white; border-radius: 6px; display: inline-block; font-weight: bold; }
         
-        .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; margin-bottom: 10px; }
         .btn-warning { background: #ffc107; color: black; }
         .btn-success { background: #28a745; }
         .btn-danger { background: #dc3545; }
         .btn-secondary { background: #6c757d; }
+
+        /* New beefy Return to Home button */
+        .btn-home-large {
+            background-color: #343a40; color: white; border: none; padding: 15px 20px;
+            width: 100%; border-radius: 8px; cursor: pointer; font-size: 18px; margin-top: 15px;
+            font-weight: bold; display: block; text-align: center; text-decoration: none;
+            box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn-home-large:hover { opacity: 0.9; }
+        .btn-home-large:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
         
         .iteration-box { background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .iteration-box input[type="number"] { width: 70px; margin: 0; padding: 6px; text-align: center; }
@@ -88,14 +98,15 @@
         <hr style="border: 0; height: 1px; background: #eee; margin: 25px 0;">
         
         <h3>Game Controls</h3>
-        <button id="fiesta-btn" class="btn-warning" onclick="toggleFiesta()">Pause Fiestaboard</button>
         
         <div class="control-grid">
             <button class="btn-danger" onclick="resetScores()">Reset Scores</button>
             <button class="btn-secondary" onclick="location.reload()">New Game</button>
         </div>
         
-        <a href="/" class="btn-secondary" style="display: block; text-align: center; text-decoration: none; box-sizing: border-box;">Exit to Hub</a>
+        <button id="fiesta-btn" class="btn-warning" onclick="toggleFiesta()">Pause Fiestaboard</button>
+        
+        <a href="/" class="btn-home-large">Return to Home</a>
         
         <p id="status-text" style="text-align:center; font-size: 14px; font-weight: bold; color: #555; margin-top: 15px; min-height: 20px;"></p>
     </div>
