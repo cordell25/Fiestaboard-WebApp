@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, jsonify
 import requests
 import json
 import os
+import random
 
 app = Flask(__name__)
 CONFIG_FILE = 'config.json'
@@ -23,6 +24,105 @@ VB_CHARS = {
     '?': 60, '°': 62
 }
 
+# --- WHEEL OF FORTUNE LOGIC ---
+CATEGORY_MAP = {
+    "doing.json": "WHAT R U DOING?",
+    "food_drink.json": "FOOD & DRINK",
+    "person.json": "PERSON / PEOPLE",
+    "phrase.json": "PHRASE",
+    "place.json": "ON THE MAP",
+    "things.json": "THING / THINGS"
+}
+
+wheel_state = {
+    "answer": "",
+    "category_name": "",
+    "revealed_letters": set(),
+    "board_type": "note" # Default to note, can be updated via config
+}
+
+def load_random_puzzle(category_file=None):
+    if not category_file or category_file == "random":
+        category_file = random.choice(list(CATEGORY_MAP.keys()))
+    
+    filepath = os.path.join("data", category_file)
+    cat_name = CATEGORY_MAP.get(category_file, "MYSTERY")
+    
+    try:
+        with open(filepath, 'r') as f:
+            answers = json.load(f)
+            answer = random.choice(answers).upper()
+    except Exception as e:
+        print(f"Error loading {filepath}: {e}")
+        answer = "TEST PUZZLE" # Fallback if file is missing
+        cat_name = "ERROR LOADING DATA"
+        
+    wheel_state["answer"] = answer
+    wheel_state["category_name"] = cat_name
+    wheel_state["revealed_letters"] = set()
+    return cat_name, answer
+
+def send_to_vestaboard(board_matrix):
+    cfg = get_config()
+    if not cfg.get("vestaboard_ip") or not cfg.get("local_api_key"):
+        raise Exception("Vestaboard IP or API Key missing.")
+
+    url = f"http://{cfg['vestaboard_ip']}:7000/local-api/message"
+    headers = {'X-Vestaboard-Local-Api-Key': cfg['local_api_key']}
+    payload = {'characters': board_matrix}
+    
+    response = requests.post(url, json=payload, headers=headers, timeout=5)
+    response.raise_for_status()
+
+def build_puzzle_board():
+    # Note board sizing by default. If standard, adjust cols/rows.
+    cols, rows = 15, 3 
+    
+    answer = wheel_state["answer"]
+    words = answer.split(' ')
+    lines = []
+    current_line = []
+    current_len = 0
+    
+    # Word Wrapping Logic
+    for word in words:
+        space_needed = 1 if current_line else 0
+        if current_len + len(word) + space_needed <= cols:
+            current_line.append(word)
+            current_len += len(word) + space_needed
+        else:
+            lines.append(" ".join(current_line))
+            current_line = [word]
+            current_len = len(word)
+    if current_line:
+        lines.append(" ".join(current_line))
+
+    show_category = len(lines) < rows
+    board = [[0]*cols for _ in range(rows)]
+
+    # Layout the puzzle
+    for row_idx, line in enumerate(lines):
+        if row_idx >= rows - (1 if show_category else 0):
+            break # Avoid overflowing the board
+            
+        padding = (cols - len(line)) // 2 # Center horizontally
+        for col_idx, char in enumerate(line):
+            if char == ' ':
+                board[row_idx][padding + col_idx] = 0 # Blank
+            elif char in wheel_state["revealed_letters"] or not char.isalpha():
+                board[row_idx][padding + col_idx] = VB_CHARS.get(char, 0) # Revealed
+            else:
+                board[row_idx][padding + col_idx] = 69 # White Block
+
+    # Add category to the bottom row if space permits
+    if show_category:
+        cat_str = wheel_state["category_name"][:cols].center(cols)
+        for j, char in enumerate(cat_str):
+             board[rows-1][j] = VB_CHARS.get(char, 0)
+             
+    return board
+
+# --- CONFIG LOGIC ---
 def get_config():
     if not os.path.exists(CONFIG_FILE):
         return {"vestaboard_ip": "", "local_api_key": "", "fiestaboard_uuid": "", "timer_page_id": ""}
@@ -44,7 +144,8 @@ def scoreboard():
 
 @app.route('/wheel')
 def wheel():
-    return render_template('wheel.html')
+    categories = [{"file": k, "name": v} for k, v in CATEGORY_MAP.items()]
+    return render_template('wheel.html', categories=categories)
 
 @app.route('/timer')
 def timer():
@@ -58,15 +159,6 @@ def handle_config():
         return jsonify({"status": "success", "message": "Settings saved"})
     return jsonify(get_config())
 
-@app.route('/api/proxy/pages', methods=['GET'])
-def proxy_pages():
-    try:
-        response = requests.get("http://fiestapi.local:4420/api/pages", timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json())
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 @app.route('/api/proxy/boards', methods=['GET'])
 def proxy_boards():
     try:
@@ -76,7 +168,75 @@ def proxy_boards():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- API ROUTES (SCOREBOARD) ---
+@app.route('/api/proxy/pages', methods=['GET'])
+def proxy_pages():
+    try:
+        response = requests.get("http://fiestapi.local:4420/api/pages", timeout=5)
+        response.raise_for_status()
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# --- API ROUTES (WHEEL OF FORTUNE) ---
+@app.route('/api/wheel/start', methods=['POST'])
+def wheel_start():
+    cat_file = request.json.get('category', 'random')
+    cat_name, _ = load_random_puzzle(cat_file)
+    
+    # Generate the initial "CATEGORY" announcement board
+    cols, rows = 15, 3
+    board = [[0]*cols for _ in range(rows)]
+    
+    title = "CATEGORY".center(cols)
+    for j, char in enumerate(title):
+        board[0][j] = VB_CHARS.get(char, 0)
+        
+    cat_str = cat_name[:cols].center(cols)
+    for j, char in enumerate(cat_str):
+        board[2][j] = VB_CHARS.get(char, 0)
+        
+    try:
+        send_to_vestaboard(board)
+        return jsonify({"status": "success", "category": cat_name})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/wheel/puzzle', methods=['POST'])
+def wheel_puzzle():
+    try:
+        board = build_puzzle_board()
+        send_to_vestaboard(board)
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/wheel/guess', methods=['POST'])
+def wheel_guess():
+    letter = request.json.get('letter', '').upper()
+    wheel_state["revealed_letters"].add(letter)
+    
+    found = letter in wheel_state["answer"]
+    
+    try:
+        board = build_puzzle_board()
+        send_to_vestaboard(board)
+        return jsonify({"status": "success", "found": found})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/wheel/solve', methods=['POST'])
+def wheel_solve():
+    # Add all uppercase letters to revealed set to show everything
+    wheel_state["revealed_letters"].update([chr(i) for i in range(65, 91)])
+    try:
+        board = build_puzzle_board()
+        send_to_vestaboard(board)
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# --- REMAINING ROUTES (SCOREBOARD & TIMER) ---
+# ... Keep your existing /update_board, /toggle_fiestaboard, and /api/timer/start logic here
 @app.route('/update_board', methods=['POST'])
 def update_board():
     cfg = get_config()
@@ -84,7 +244,6 @@ def update_board():
         return jsonify({"status": "error", "message": "Vestaboard IP or API Key missing in settings."}), 400
 
     local_api_url = f"http://{cfg['vestaboard_ip']}:7000/local-api/message"
-    
     data = request.json
     players = data.get('players', [])
     board_type = data.get('board_type', 'note')
@@ -102,7 +261,6 @@ def update_board():
         
     board = [[0 for _ in range(cols)] for _ in range(rows)]
     current_row = 0
-    
     if show_title:
         title_str = game_name[:cols].center(cols) 
         for j, char in enumerate(title_str):
@@ -123,7 +281,6 @@ def update_board():
 
     headers = {'X-Vestaboard-Local-Api-Key': cfg['local_api_key']}
     payload = {'characters': board}
-    
     try:
         response = requests.post(local_api_url, json=payload, headers=headers, timeout=5)
         response.raise_for_status()
@@ -137,10 +294,8 @@ def toggle_fiestaboard():
     uuid = cfg.get("fiestaboard_uuid")
     if not uuid:
         return jsonify({"status": "error", "message": "Fiestaboard UUID missing in settings."}), 400
-        
     fiestaboard_api_url = f"http://fiestapi.local:4420/api/settings/board/{uuid}/pause"
     pause_state = request.json.get('paused', True)
-    
     try:
         response = requests.post(fiestaboard_api_url, json={"paused": pause_state}, timeout=5)
         response.raise_for_status()
@@ -149,41 +304,17 @@ def toggle_fiestaboard():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- API ROUTES (WHEEL OF FORTUNE) ---
-@app.route('/api/wheel/command', methods=['POST'])
-def wheel_command():
-    try:
-        response = requests.post("http://fiestapi.local:4420/api/plugins/wheeloffortune/receive", json=request.json, timeout=5)
-        response.raise_for_status()
-        return jsonify({"status": "success"})
-    except Exception as e:
-        print(f"Wheel command error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/wheel/clear', methods=['POST'])
-def wheel_clear():
-    try:
-        response = requests.post("http://fiestapi.local:4420/api/triggers/clear", timeout=5)
-        response.raise_for_status()
-        return jsonify({"status": "success"})
-    except Exception as e:
-        print(f"Wheel clear error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# --- API ROUTES (TIMER) ---
 @app.route('/api/timer/start', methods=['POST'])
 def timer_start():
     data = request.json
     minutes = int(data.get('minutes', 5))
     cfg = get_config()
     page_id = cfg.get("timer_page_id")
-
     try:
         plugin_payload = {"duration": minutes}
         response1 = requests.post("http://fiestapi.local:4420/api/plugins/timer/receive", json=plugin_payload, timeout=5)
         response1.raise_for_status()
     except Exception as e:
-        print(f"Timer plugin error: {e}")
         return jsonify({"status": "error", "message": f"Failed to start timer logic: {str(e)}"}), 500
 
     if page_id:
@@ -195,9 +326,7 @@ def timer_start():
             response2 = requests.post("http://fiestapi.local:4420/api/settings/temporary-override", json=override_payload, timeout=5)
             response2.raise_for_status()
         except Exception as e:
-            print(f"Timer override error: {e}")
             return jsonify({"status": "warning", "message": "Timer started, but failed to set temporary override."}), 500
-
     return jsonify({"status": "success", "message": f"{minutes}-minute timer started!"})
 
 if __name__ == '__main__':
