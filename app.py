@@ -364,5 +364,185 @@ def toggle_fiestaboard():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# --- VESTA-WORD (MULTIPLAYER WORDLE) LOGIC ---
+import uuid
+
+vestaword_state = {
+    "status": "lobby", # 'lobby', 'playing', 'game_over'
+    "players": [],     # List of {"id": "123", "name": "Andy"}
+    "current_turn": 0, # Index of the player whose turn it is
+    "target_word": "",
+    "guesses": [],     # List of {"word": "SMART", "colors": [66, 65, 0, 0, 66]}
+    "max_guesses": 6,
+    "winner": None
+}
+
+@app.route('/vestaword')
+def vestaword():
+    return render_template('vestaword.html')
+
+# 1. The Polling Endpoint (Phones check this every 1 second)
+@app.route('/api/vestaword/state', methods=['GET'])
+def vestaword_get_state():
+    return jsonify(vestaword_state)
+
+# 2. Join the Lobby
+@app.route('/api/vestaword/join', methods=['POST'])
+def vestaword_join():
+    if vestaword_state["status"] != "lobby":
+        return jsonify({"status": "error", "message": "Game already in progress!"}), 400
+        
+    player_name = request.json.get("name", "Player").upper()[:10]
+    player_id = str(uuid.uuid4())
+    
+    vestaword_state["players"].append({
+        "id": player_id,
+        "name": player_name
+    })
+    
+    # Send a lobby welcome to the Vestaboard
+    board = [[0]*15 for _ in range(3)]
+    title = "VESTA-WORD".center(15)
+    for j, char in enumerate(title): board[0][j] = VB_CHARS.get(char, 0)
+    
+    msg = f"{len(vestaword_state['players'])} JOINED".center(15)
+    for j, char in enumerate(msg): board[2][j] = VB_CHARS.get(char, 0)
+    
+    try:
+        send_to_vestaboard(board)
+    except:
+        pass # Ignore board errors during lobby joins
+        
+    return jsonify({"status": "success", "player_id": player_id})
+
+# 3. Start the Game
+@app.route('/api/vestaword/start', methods=['POST'])
+def vestaword_start():
+    if len(vestaword_state["players"]) == 0:
+        return jsonify({"status": "error", "message": "Need at least 1 player"}), 400
+        
+    # Load a random word
+    try:
+        with open('data/5_letter_words.json', 'r') as f:
+            words = json.load(f)
+            vestaword_state["target_word"] = random.choice(words).upper()
+    except Exception as e:
+        print(f"Word load error: {e}")
+        vestaword_state["target_word"] = "BOARD" # Fallback
+        
+    vestaword_state["status"] = "playing"
+    vestaword_state["current_turn"] = 0
+    vestaword_state["guesses"] = []
+    vestaword_state["winner"] = None
+    
+    # Update the Vestaboard to show the first player's turn
+    update_vestaword_board()
+    
+    return jsonify({"status": "success"})
+
+# 4. Core Board Formatter
+def update_vestaword_board():
+    board = [[0]*15 for _ in range(3)]
+    
+    if vestaword_state["status"] == "playing":
+        # Row 1: Whose turn is it?
+        current_player = vestaword_state["players"][vestaword_state["current_turn"]]["name"]
+        turn_text = f"{current_player} GUESS {len(vestaword_state['guesses']) + 1}/6".center(15)
+        for j, char in enumerate(turn_text): board[0][j] = VB_CHARS.get(char, 0)
+        
+        # Row 2 & 3: Last guess & Colors (if any)
+        if len(vestaword_state["guesses"]) > 0:
+            last_guess = vestaword_state["guesses"][-1]
+            
+            # Center the 5-letter word with spaces (e.g., "S M A R T")
+            spaced_word = " ".join(last_guess["word"])
+            padding = (15 - len(spaced_word)) // 2
+            
+            for j, char in enumerate(spaced_word): 
+                board[1][padding + j] = VB_CHARS.get(char, 0)
+                
+            # Place colors directly beneath the letters (Row 3)
+            # 66 = Green, 65 = Yellow, 69 = White (Miss)
+            color_idx = 0
+            for j, char in enumerate(spaced_word):
+                if char != ' ':
+                    board[2][padding + j] = last_guess["colors"][color_idx]
+                    color_idx += 1
+    
+    try:
+        send_to_vestaboard(board)
+    except Exception as e:
+        print(f"Vesta-word board update failed: {e}")
+
+# 5. Process a Guess
+@app.route('/api/vestaword/guess', methods=['POST'])
+def vestaword_guess():
+    if vestaword_state["status"] != "playing":
+        return jsonify({"status": "error", "message": "Game not active"}), 400
+        
+    data = request.json
+    player_id = data.get("player_id")
+    guess = data.get("guess", "").upper()
+    
+    current_player = vestaword_state["players"][vestaword_state["current_turn"]]
+    if player_id != current_player["id"]:
+        return jsonify({"status": "error", "message": "Not your turn!"}), 403
+        
+    if len(guess) != 5:
+        return jsonify({"status": "error", "message": "Guess must be 5 letters."}), 400
+
+    target = vestaword_state["target_word"]
+    colors = [69, 69, 69, 69, 69] # Default to 69 (White / Miss)
+    
+    # Wordle Evaluation Logic
+    target_chars = list(target)
+    
+    # First pass: Green (Exact Match - 66)
+    for i in range(5):
+        if guess[i] == target[i]:
+            colors[i] = 66
+            target_chars[i] = None # Remove from pool so we don't double-count
+            
+    # Second pass: Yellow (Wrong spot - 65)
+    for i in range(5):
+        if colors[i] != 66 and guess[i] in target_chars:
+            colors[i] = 65
+            target_chars[target_chars.index(guess[i])] = None
+
+    vestaword_state["guesses"].append({"word": guess, "colors": colors})
+
+    # Check Win/Loss conditions
+    if guess == target:
+        vestaword_state["status"] = "game_over"
+        vestaword_state["winner"] = current_player["name"]
+        
+        # Override board specifically for the win
+        board = [[0]*15 for _ in range(3)]
+        w_text = f"{current_player['name']} WINS!".center(15)
+        for j, char in enumerate(w_text): board[0][j] = VB_CHARS.get(char, 0)
+        word_text = guess.center(15)
+        for j, char in enumerate(word_text): board[1][j] = VB_CHARS.get(char, 0)
+        send_to_vestaboard(board)
+        return jsonify({"status": "success"})
+        
+    elif len(vestaword_state["guesses"]) >= vestaword_state["max_guesses"]:
+        vestaword_state["status"] = "game_over"
+        vestaword_state["winner"] = "Nobody"
+        
+        # Override board for a loss
+        board = [[0]*15 for _ in range(3)]
+        l_text = "GAME OVER".center(15)
+        for j, char in enumerate(l_text): board[0][j] = VB_CHARS.get(char, 0)
+        word_text = f"WAS: {target}".center(15)
+        for j, char in enumerate(word_text): board[2][j] = VB_CHARS.get(char, 0)
+        send_to_vestaboard(board)
+        return jsonify({"status": "success"})
+        
+    else:
+        # Advance to the next player
+        vestaword_state["current_turn"] = (vestaword_state["current_turn"] + 1) % len(vestaword_state["players"])
+        update_vestaword_board()
+        return jsonify({"status": "success"})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
