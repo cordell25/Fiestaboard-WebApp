@@ -445,24 +445,23 @@ def update_vestaword_board():
     board = [[0]*15 for _ in range(3)]
     
     if vestaword_state["status"] == "playing":
-        # Row 1: Whose turn is it?
+        # Safely cap the header to 15 characters to prevent IndexError crashes
         current_player = vestaword_state["players"][vestaword_state["current_turn"]]["name"]
-        turn_text = f"{current_player} GUESS {len(vestaword_state['guesses']) + 1}/6".center(15)
-        for j, char in enumerate(turn_text): board[0][j] = VB_CHARS.get(char, 0)
+        header_str = f"{current_player} {len(vestaword_state['guesses']) + 1}/6"
+        turn_text = header_str[:15].center(15)
+        
+        for j, char in enumerate(turn_text): 
+            board[0][j] = VB_CHARS.get(char, 0)
         
         # Row 2 & 3: Last guess & Colors (if any)
         if len(vestaword_state["guesses"]) > 0:
             last_guess = vestaword_state["guesses"][-1]
-            
-            # Center the 5-letter word with spaces (e.g., "S M A R T")
             spaced_word = " ".join(last_guess["word"])
             padding = (15 - len(spaced_word)) // 2
             
             for j, char in enumerate(spaced_word): 
                 board[1][padding + j] = VB_CHARS.get(char, 0)
                 
-            # Place colors directly beneath the letters (Row 3)
-            # 66 = Green, 65 = Yellow, 69 = White (Miss)
             color_idx = 0
             for j, char in enumerate(spaced_word):
                 if char != ' ':
@@ -492,18 +491,14 @@ def vestaword_guess():
         return jsonify({"status": "error", "message": "Guess must be 5 letters."}), 400
 
     target = vestaword_state["target_word"]
-    colors = [69, 69, 69, 69, 69] # Default to 69 (White / Miss)
+    colors = [69, 69, 69, 69, 69] 
     
-    # Wordle Evaluation Logic
     target_chars = list(target)
-    
-    # First pass: Green (Exact Match - 66)
     for i in range(5):
         if guess[i] == target[i]:
             colors[i] = 66
-            target_chars[i] = None # Remove from pool so we don't double-count
+            target_chars[i] = None 
             
-    # Second pass: Yellow (Wrong spot - 65)
     for i in range(5):
         if colors[i] != 66 and guess[i] in target_chars:
             colors[i] = 65
@@ -511,16 +506,14 @@ def vestaword_guess():
 
     vestaword_state["guesses"].append({"word": guess, "colors": colors})
 
-    # Check Win/Loss conditions
     if guess == target:
         vestaword_state["status"] = "game_over"
         vestaword_state["winner"] = current_player["name"]
         
-        # Override board specifically for the win
         board = [[0]*15 for _ in range(3)]
-        w_text = f"{current_player['name']} WINS!".center(15)
+        w_text = f"{current_player['name']} WINS!"[:15].center(15)
         for j, char in enumerate(w_text): board[0][j] = VB_CHARS.get(char, 0)
-        word_text = guess.center(15)
+        word_text = guess[:15].center(15)
         for j, char in enumerate(word_text): board[1][j] = VB_CHARS.get(char, 0)
         send_to_vestaboard(board)
         return jsonify({"status": "success"})
@@ -529,17 +522,15 @@ def vestaword_guess():
         vestaword_state["status"] = "game_over"
         vestaword_state["winner"] = "Nobody"
         
-        # Override board for a loss
         board = [[0]*15 for _ in range(3)]
-        l_text = "GAME OVER".center(15)
+        l_text = "GAME OVER"[:15].center(15)
         for j, char in enumerate(l_text): board[0][j] = VB_CHARS.get(char, 0)
-        word_text = f"WAS: {target}".center(15)
+        word_text = f"WAS: {target}"[:15].center(15)
         for j, char in enumerate(word_text): board[2][j] = VB_CHARS.get(char, 0)
         send_to_vestaboard(board)
         return jsonify({"status": "success"})
         
     else:
-        # Advance to the next player
         vestaword_state["current_turn"] = (vestaword_state["current_turn"] + 1) % len(vestaword_state["players"])
         update_vestaword_board()
         return jsonify({"status": "success"})
