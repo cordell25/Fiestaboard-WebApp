@@ -498,11 +498,11 @@ def vestaword_timeout():
         update_vestaword_board()
         
     return jsonify({"status": "success"})
-
 def update_vestaword_board():
     board = [[0]*15 for _ in range(3)]
     
     if vestaword_state["status"] == "playing":
+        # Row 1: Player Name & Turn info
         current_player = vestaword_state["players"][vestaword_state["current_turn"]]["name"]
         header_str = f"{current_player} {len(vestaword_state['guesses']) + 1}/{vestaword_state['max_guesses']}"
         turn_text = header_str[:15].center(15)
@@ -510,19 +510,26 @@ def update_vestaword_board():
         for j, char in enumerate(turn_text): 
             board[0][j] = VB_CHARS.get(char, 0)
         
-        if len(vestaword_state["guesses"]) > 0:
-            last_guess = vestaword_state["guesses"][-1]
-            spaced_word = " ".join(last_guess["word"])
-            padding = (15 - len(spaced_word)) // 2
-            
-            for j, char in enumerate(spaced_word): 
-                board[1][padding + j] = VB_CHARS.get(char, 0)
-                
-            color_idx = 0
-            for j, char in enumerate(spaced_word):
-                if char != ' ':
-                    board[2][padding + j] = last_guess["colors"][color_idx]
-                    color_idx += 1
+        # Calculate cumulative correct letters across all past guesses
+        revealed = [None, None, None, None, None]
+        for guess_obj in vestaword_state["guesses"]:
+            word = guess_obj["word"]
+            colors = guess_obj["colors"]
+            for i in range(5):
+                if colors[i] == 66:
+                    revealed[i] = word[i]
+        
+        # Row 2 & 3: Revealed Letters & Indicator Blocks
+        # We space the 5 slots out across the board, starting at padding index 3
+        padding = 3 
+        for i in range(5):
+            col = padding + (i * 2)
+            if revealed[i]:
+                board[1][col] = VB_CHARS.get(revealed[i], 0) # The letter
+                board[2][col] = 66                           # Green Block
+            else:
+                board[1][col] = 0                            # Blank Space
+                board[2][col] = 63                           # Red Block
     
     try:
         send_to_vestaboard(board)
