@@ -137,12 +137,6 @@
         <p class="helper-text">Optional. Allows Pausing of the Fiestaboard automation while using apps so the board is not overwritten.</p>
         
         <hr style="border: 0; height: 1px; background: #eee; margin: 15px 0;">
-
-        <label>Timer Page</label>
-        <select id="cfg-timer">
-            <option value="">Loading pages...</option>
-        </select>
-        <p class="helper-text">The FiestaBoard Page to use for the Timer display.</p>
         
         <button class="btn-success" onclick="saveSettings()">Save Configuration</button>
         <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
@@ -259,10 +253,6 @@
                         const uuidSelect = document.getElementById('cfg-uuid');
                         uuidSelect.innerHTML = '<option value="">Save IP and API Key first...</option>';
                         uuidSelect.disabled = true;
-                        
-                        const timerSelect = document.getElementById('cfg-timer');
-                        timerSelect.innerHTML = '<option value="">Save IP and API Key first...</option>';
-                        timerSelect.disabled = true;
                     } else {
                         isInitialSetup = false;
                         loadDropdowns(configData);
@@ -272,13 +262,10 @@
 
         function loadDropdowns(configData) {
             const uuidSelect = document.getElementById('cfg-uuid');
-            const timerSelect = document.getElementById('cfg-timer');
             
             uuidSelect.disabled = false;
-            timerSelect.disabled = false;
             
             uuidSelect.innerHTML = '<option value="">Loading boards...</option>';
-            timerSelect.innerHTML = '<option value="">Loading pages...</option>';
             
             fetch('/api/proxy/boards')
                 .then(res => res.json())
@@ -297,24 +284,6 @@
                 .catch(() => {
                     uuidSelect.innerHTML = '<option value="">Error loading boards</option>';
                 });
-
-            fetch('/api/proxy/pages')
-                .then(res => res.json())
-                .then(data => {
-                    timerSelect.innerHTML = '<option value="">None (Optional)</option>';
-                    const pagesList = Array.isArray(data) ? data : (data.pages || data.data || []);
-                    
-                    pagesList.forEach(page => {
-                        const opt = document.createElement('option');
-                        opt.value = page.id;
-                        opt.innerText = page.name;
-                        if (page.id === configData.timer_page_id) opt.selected = true;
-                        timerSelect.appendChild(opt);
-                    });
-                })
-                .catch(() => {
-                    timerSelect.innerHTML = '<option value="">Error loading pages</option>';
-                });
         }
 
         function closeSettings() {
@@ -328,8 +297,7 @@
             const payload = {
                 vestaboard_ip: document.getElementById('cfg-ip').value.trim(),
                 local_api_key: document.getElementById('cfg-key').value.trim(),
-                fiestaboard_uuid: document.getElementById('cfg-uuid').value,
-                timer_page_id: document.getElementById('cfg-timer').value
+                fiestaboard_uuid: document.getElementById('cfg-uuid').value
             };
 
             fetch('/api/config', {
@@ -345,7 +313,7 @@
                     isInitialSetup = false;
                     status.innerText = "Base Settings Saved! Loading Fiestaboard options...";
                     status.style.color = "#28a745";
-                    loadDropdowns({ fiestaboard_uuid: "", timer_page_id: "" });
+                    loadDropdowns({ fiestaboard_uuid: "" });
                 } else {
                     status.innerText = "Settings saved successfully!";
                     status.style.color = "#28a745";
