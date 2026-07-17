@@ -15,15 +15,16 @@
         .pause-btn { background: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 18px; min-width: 45px; transition: background-color 0.2s; }
         .pause-btn:disabled { opacity: 0.3; cursor: not-allowed; background: #6c757d !important; }
         
-        input[type="text"] { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; }
+        input[type="text"], input[type="number"], select { width: 100%; padding: 12px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; }
+        label { font-weight: bold; font-size: 14px; color: #555; display: block; text-align: left; margin-top: 10px; }
+        
+        .settings-box { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
         
         .btn-primary { background-color: #007bff; border: none; color: white; padding: 15px 32px; text-align: center; display: inline-block; font-size: 16px; cursor: pointer; border-radius: 8px; font-weight: bold; width: 100%; box-sizing: border-box; }
         .btn-success { background-color: #28a745; border: none; color: white; padding: 15px; font-size: 16px; cursor: pointer; border-radius: 8px; font-weight: bold; width: 100%; box-sizing: border-box; margin-top: 15px; }
-        
         .btn-submit { background-color: #007bff; color: white; border: none; padding: 18px; font-size: 20px; border-radius: 8px; font-weight: bold; width: 100%; box-sizing: border-box; margin-top: 20px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .btn-submit:disabled { background-color: #6c757d; cursor: not-allowed; opacity: 0.5; }
         
-        /* Updated Bottom Action Buttons */
         .bottom-actions { display: flex; justify-content: center; gap: 15px; margin-top: 30px; }
         .btn-leave { background: transparent; color: #6c757d; border: 1px solid #6c757d; padding: 10px 15px; font-size: 14px; cursor: pointer; border-radius: 6px; font-weight: bold; flex: 1; }
         .btn-end { background: transparent; color: #dc3545; border: 1px solid #dc3545; padding: 10px 15px; font-size: 14px; cursor: pointer; border-radius: 6px; font-weight: bold; flex: 1; }
@@ -34,9 +35,11 @@
         .player-list li { padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; font-size: 18px; }
         .player-list li:last-child { border-bottom: none; }
 
-        .turn-banner { padding: 10px; font-size: 18px; font-weight: bold; border-radius: 8px; margin-bottom: 20px; transition: background-color 0.3s; }
+        .turn-banner { padding: 10px; font-size: 18px; font-weight: bold; border-radius: 8px; margin-bottom: 10px; transition: background-color 0.3s; }
         .turn-active { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .turn-waiting { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        
+        .timer-display { font-size: 32px; font-weight: bold; color: #dc3545; margin: 10px 0; }
         
         .word-input-display { font-size: 36px; letter-spacing: 10px; font-weight: bold; min-height: 50px; margin: 10px 0 20px 0; color: #007bff; text-transform: uppercase; }
         
@@ -58,41 +61,18 @@
         @media (prefers-color-scheme: dark) {
             body { background: #121212; color: #e0e0e0; }
             .card { background: #1e1e1e; box-shadow: 0 4px 6px rgba(0,0,0,0.4); }
-            
             h1, h2, h3, .app-title { color: #f4f4f9; }
             .subtitle, .app-desc, label, .helper-text { color: #aaa !important; }
-            
-            /* Override hardcoded inline grey/black styles */
             p[style*="color: #555"], p[style*="color: #666"], h2[style*="color: #555"], h3[style*="color: #666"] { color: #aaa !important; }
-            
-            /* Hub Home Cards */
-            .app-card { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
-            .app-card:hover { box-shadow: 0 6px 12px rgba(0,0,0,0.5); border-color: #007bff; }
-            
-            /* Inputs & Dropdowns */
-            input[type="text"], input[type="password"], input[type="number"], select { 
-                background-color: #2c2c2c; color: #fff; border: 1px solid #444; 
-            }
-            input[type="number"].score-input, input[type="number"].timer-input {
-                background-color: #2c2c2c; color: #fff; border-color: #444;
-            }
-            select:disabled { background-color: #222; color: #666; }
-            
-            /* App-Specific Containers */
-            .iteration-box, .keyboard-section, .player-list { background: #2a2a2a; border-color: #444; }
+            input[type="text"], input[type="password"], input[type="number"], select { background-color: #2c2c2c; color: #fff; border: 1px solid #444; }
+            select:disabled, input:disabled { background-color: #222; color: #666; }
+            .iteration-box, .keyboard-section, .player-list, .settings-box { background: #2a2a2a; border-color: #444; }
             .player-row, .player-list li { border-bottom: 1px solid #444; }
-            
-            /* Keyboards */
             .key { background-color: #444; color: #f4f4f9; }
             .key:disabled { opacity: 0.4; }
-            
-            /* Vesta-Word Turn Banners */
             .turn-waiting { background-color: #3a2e00; color: #ffdb4d; border-color: #665700; }
             .turn-active { background-color: #003311; color: #4dff88; border-color: #006622; }
-            
             hr { background: #444 !important; }
-            
-            /* Make incorrect black flaps stand out against dark mode card */
             .color-0 { background-color: #000; border: 1px solid #333; } 
         }
     </style>
@@ -108,21 +88,43 @@
 
         <!-- LOBBY SCREEN -->
         <div id="lobby-screen" style="display: block;">
-            <h3>Join Game</h3>
-            <input type="text" id="player-name" placeholder="Enter your name" maxlength="10">
-            <button class="btn-primary" id="join-btn" onclick="joinGame()">Join Lobby</button>
+            
+            <div id="setup-inputs">
+                <div class="settings-box">
+                    <label>Max Guesses</label>
+                    <input type="number" id="setting-guesses" value="6" min="1" max="10">
+                    
+                    <label>Turn Timer</label>
+                    <select id="setting-timer-enabled" onchange="document.getElementById('timer-sec-container').style.display = this.value === 'true' ? 'block' : 'none'">
+                        <option value="false">Off</option>
+                        <option value="true">On</option>
+                    </select>
+                    
+                    <div id="timer-sec-container" style="display: none;">
+                        <label>Seconds per turn</label>
+                        <input type="number" id="setting-timer-sec" value="30" min="5" max="120">
+                    </div>
+                    <p id="settings-msg" style="color: #007bff; font-size: 12px; margin-top: 10px; font-weight: bold;"></p>
+                </div>
+
+                <h3>Join Game</h3>
+                <input type="text" id="player-name" placeholder="Enter your name" maxlength="10">
+                <button class="btn-primary" id="join-btn" onclick="joinGame()">Join Lobby</button>
+                <p id="error-msg" style="color: red; margin-top: 10px;"></p>
+            </div>
             
             <div id="lobby-waiting" style="display: none; margin-top: 25px;">
                 <h3 style="color: #666;">Players in Lobby</h3>
                 <ul class="player-list" id="player-list-ul"></ul>
                 <button class="btn-success" onclick="startGame()">Start Game</button>
             </div>
-            <p id="error-msg" style="color: red; margin-top: 10px;"></p>
         </div>
 
         <!-- GAME SCREEN -->
         <div id="game-screen">
             <div id="turn-banner" class="turn-banner turn-waiting">Waiting for game to start...</div>
+            
+            <div id="turn-timer-display" class="timer-display" style="display: none;">30</div>
             
             <div class="guesses-container" id="past-guesses"></div>
             
@@ -145,6 +147,10 @@
         let currentInput = "";
         let activeBoardUuid = '';
         let isAutomationPaused = false;
+        
+        let currentTurnId = -1;
+        let turnTimerInterval;
+        let secondsRemaining = 30;
         
         document.addEventListener('DOMContentLoaded', () => {
             fetch('/api/config').then(res => res.json()).then(data => {
@@ -183,16 +189,22 @@
             myName = document.getElementById('player-name').value.trim() || "Player";
             document.getElementById('join-btn').disabled = true;
             
+            const payload = { 
+                name: myName,
+                max_guesses: document.getElementById('setting-guesses').value,
+                timer_enabled: document.getElementById('setting-timer-enabled').value === 'true',
+                timer_seconds: document.getElementById('setting-timer-sec').value
+            };
+            
             fetch('/api/vestaword/join', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: myName })
+                body: JSON.stringify(payload)
             })
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'success') {
                     myPlayerId = data.player_id;
-                    document.getElementById('join-btn').style.display = 'none';
-                    document.getElementById('player-name').disabled = true;
+                    document.getElementById('setup-inputs').style.display = 'none';
                     document.getElementById('lobby-waiting').style.display = 'block';
                 } else {
                     document.getElementById('error-msg').innerText = data.message;
@@ -211,22 +223,46 @@
             }
         }
 
+        function forceTimeout() {
+            fetch('/api/vestaword/timeout', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: myPlayerId })
+            });
+        }
+
         function pollGameState() {
             fetch('/api/vestaword/state')
                 .then(res => res.json())
                 .then(state => {
-                    // Check if the game was ended and reset our local UI if we were kicked out
+                    
                     if(state.status === 'lobby') {
                         document.getElementById('game-screen').style.display = 'none';
                         document.getElementById('lobby-screen').style.display = 'block';
                         
-                        // If we had a player ID, but we aren't in the state array anymore (because End Game was clicked)
+                        // Lock inputs if someone else is already in the lobby
+                        if(state.players.length > 0) {
+                            document.getElementById('setting-guesses').disabled = true;
+                            document.getElementById('setting-timer-enabled').disabled = true;
+                            document.getElementById('setting-timer-sec').disabled = true;
+                            
+                            document.getElementById('setting-guesses').value = state.max_guesses;
+                            document.getElementById('setting-timer-enabled').value = state.timer_enabled ? 'true' : 'false';
+                            document.getElementById('setting-timer-sec').value = state.timer_seconds;
+                            document.getElementById('timer-sec-container').style.display = state.timer_enabled ? 'block' : 'none';
+                            document.getElementById('settings-msg').innerText = "Settings locked by lobby host.";
+                        } else {
+                            document.getElementById('setting-guesses').disabled = false;
+                            document.getElementById('setting-timer-enabled').disabled = false;
+                            document.getElementById('setting-timer-sec').disabled = false;
+                            document.getElementById('settings-msg').innerText = "";
+                        }
+                        
                         if (myPlayerId && !state.players.find(p => p.id === myPlayerId)) {
                             myPlayerId = null;
-                            document.getElementById('join-btn').style.display = 'inline-block';
+                            document.getElementById('setup-inputs').style.display = 'block';
                             document.getElementById('join-btn').disabled = false;
-                            document.getElementById('player-name').disabled = false;
                             document.getElementById('lobby-waiting').style.display = 'none';
+                            clearInterval(turnTimerInterval);
                         }
                         
                         const ul = document.getElementById('player-list-ul');
@@ -245,12 +281,40 @@
             const banner = document.getElementById('turn-banner');
             const keys = document.querySelectorAll('.key');
             const submitBtn = document.getElementById('submit-guess-btn');
+            const timerDisplay = document.getElementById('turn-timer-display');
+            
+            // Check if turn changed (new turn ID)
+            if (state.turn_id !== currentTurnId) {
+                currentTurnId = state.turn_id;
+                clearInterval(turnTimerInterval);
+                
+                if (state.timer_enabled && state.status === 'playing') {
+                    timerDisplay.style.display = 'block';
+                    secondsRemaining = state.timer_seconds;
+                    timerDisplay.innerText = secondsRemaining;
+                    
+                    if (state.players[state.current_turn].id === myPlayerId) {
+                        turnTimerInterval = setInterval(() => {
+                            secondsRemaining--;
+                            timerDisplay.innerText = secondsRemaining;
+                            if (secondsRemaining <= 0) {
+                                clearInterval(turnTimerInterval);
+                                forceTimeout();
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    timerDisplay.style.display = 'none';
+                }
+            }
             
             if(state.status === 'game_over') {
                 banner.className = 'turn-banner turn-active';
                 banner.innerText = state.winner === 'Nobody' ? "Game Over! You lost." : `${state.winner} Wins!`;
                 keys.forEach(k => k.disabled = true);
                 submitBtn.disabled = true;
+                timerDisplay.style.display = 'none';
+                clearInterval(turnTimerInterval);
             } else {
                 const currentPlayer = state.players[state.current_turn];
                 const isMyTurn = (currentPlayer.id === myPlayerId);
