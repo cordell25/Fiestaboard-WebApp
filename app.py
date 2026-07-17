@@ -68,6 +68,10 @@ def wheel():
 def timer():
     return render_template('timer.html')
 
+@app.route('/vestaword')
+def vestaword():
+    return render_template('vestaword.html')
+
 # --- API ROUTES (GLOBAL) ---
 @app.route('/api/config', methods=['GET', 'POST'])
 def handle_config():
@@ -91,22 +95,19 @@ timer_state = {"active_id": None}
 def build_timer_board(name, total_seconds, ticks_passed, is_done):
     board = [[0]*15 for _ in range(3)]
     
-    # Row 1: Centered Name
     name_str = str(name)[:15].upper().center(15)
     for i, c in enumerate(name_str): 
         board[0][i] = VB_CHARS.get(c, 0)
     
-    # Row 2: The Color Blocks
-    board[1][0] = 63  # Red Left Cap
-    board[1][14] = 66 # Green Right Cap
+    board[1][0] = 63  
+    board[1][14] = 66 
     
-    for i in range(1, 14): # Indices 1 through 13
+    for i in range(1, 14): 
         if i >= (14 - ticks_passed):
-            board[1][i] = 68 # Violet (Replaced from right to left)
+            board[1][i] = 68 
         else:
-            board[1][i] = 69 # White (Remaining)
+            board[1][i] = 69 
             
-    # Row 3: Duration / Times Up
     if is_done:
         text = "TIMES UP".center(15)
     else:
@@ -123,20 +124,18 @@ def run_timer_thread(timer_id, name, total_seconds, delay_minutes):
     cfg = get_config()
     board_uuid = cfg.get("fiestaboard_uuid")
     
-    # 1. Pause Fiestaboard
     if board_uuid:
         try:
             requests.post(f"http://fiestapi.local:4420/api/settings/board/{board_uuid}/pause", json={"paused": True}, timeout=5)
         except Exception as e:
             print(f"Timer thread failed to pause Fiestaboard: {e}")
 
-    # 2. Execute Timer Ticks
     ticks = 0
     tick_interval = total_seconds / 13.0
     
     while ticks <= 13:
         if timer_state["active_id"] != timer_id:
-            return # A new timer was started, cancel this thread
+            return 
             
         board = build_timer_board(name, total_seconds, ticks, is_done=(ticks==13))
         try:
@@ -148,14 +147,12 @@ def run_timer_thread(timer_id, name, total_seconds, delay_minutes):
             time.sleep(tick_interval)
         ticks += 1
         
-    # 3. Wait X minutes before unpausing
     wait_seconds = int(float(delay_minutes) * 60)
     for _ in range(wait_seconds):
         if timer_state["active_id"] != timer_id:
-            return # Cancelled during wait
+            return 
         time.sleep(1)
         
-    # 4. Resume Fiestaboard
     if board_uuid and timer_state["active_id"] == timer_id:
         try:
             requests.post(f"http://fiestapi.local:4420/api/settings/board/{board_uuid}/pause", json={"paused": False}, timeout=5)
@@ -178,7 +175,6 @@ def timer_start():
     cfg = get_config()
     delay_minutes = cfg.get("timer_end_delay", 1)
     
-    # Assign a unique ID so old timer threads terminate if a new one is launched
     timer_id = str(uuid.uuid4())
     timer_state["active_id"] = timer_id
     
@@ -304,6 +300,7 @@ def wheel_solve():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # --- SCOREBOARD LOGIC ---
 @app.route('/update_board', methods=['POST'])
 def update_board():
@@ -364,29 +361,22 @@ def toggle_fiestaboard():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- VESTA-WORD (MULTIPLAYER WORDLE) LOGIC ---
-import uuid
 
+# --- VESTA-WORD (MULTIPLAYER WORDLE) LOGIC ---
 vestaword_state = {
-    "status": "lobby", # 'lobby', 'playing', 'game_over'
-    "players": [],     # List of {"id": "123", "name": "Andy"}
-    "current_turn": 0, # Index of the player whose turn it is
+    "status": "lobby", 
+    "players": [],     
+    "current_turn": 0, 
     "target_word": "",
-    "guesses": [],     # List of {"word": "SMART", "colors": [66, 65, 0, 0, 66]}
+    "guesses": [],     
     "max_guesses": 6,
     "winner": None
 }
 
-@app.route('/vestaword')
-def vestaword():
-    return render_template('vestaword.html')
-
-# 1. The Polling Endpoint (Phones check this every 1 second)
 @app.route('/api/vestaword/state', methods=['GET'])
 def vestaword_get_state():
     return jsonify(vestaword_state)
 
-# 2. Join the Lobby
 @app.route('/api/vestaword/join', methods=['POST'])
 def vestaword_join():
     if vestaword_state["status"] != "lobby":
@@ -400,7 +390,6 @@ def vestaword_join():
         "name": player_name
     })
     
-    # Send a lobby welcome to the Vestaboard
     board = [[0]*15 for _ in range(3)]
     title = "VESTA-WORD".center(15)
     for j, char in enumerate(title): board[0][j] = VB_CHARS.get(char, 0)
@@ -411,41 +400,55 @@ def vestaword_join():
     try:
         send_to_vestaboard(board)
     except:
-        pass # Ignore board errors during lobby joins
+        pass 
         
     return jsonify({"status": "success", "player_id": player_id})
 
-# 3. Start the Game
 @app.route('/api/vestaword/start', methods=['POST'])
 def vestaword_start():
     if len(vestaword_state["players"]) == 0:
         return jsonify({"status": "error", "message": "Need at least 1 player"}), 400
         
-    # Load a random word
     try:
         with open('data/5_letter_words.json', 'r') as f:
             words = json.load(f)
             vestaword_state["target_word"] = random.choice(words).upper()
     except Exception as e:
         print(f"Word load error: {e}")
-        vestaword_state["target_word"] = "BOARD" # Fallback
+        vestaword_state["target_word"] = "BOARD" 
         
     vestaword_state["status"] = "playing"
     vestaword_state["current_turn"] = 0
     vestaword_state["guesses"] = []
     vestaword_state["winner"] = None
     
-    # Update the Vestaboard to show the first player's turn
     update_vestaword_board()
-    
     return jsonify({"status": "success"})
 
-# 4. Core Board Formatter
+@app.route('/api/vestaword/end', methods=['POST'])
+def vestaword_end():
+    vestaword_state["status"] = "lobby"
+    vestaword_state["players"] = []
+    vestaword_state["current_turn"] = 0
+    vestaword_state["target_word"] = ""
+    vestaword_state["guesses"] = []
+    vestaword_state["winner"] = None
+    
+    board = [[0]*15 for _ in range(3)]
+    msg = "GAME ENDED".center(15)
+    for j, char in enumerate(msg): board[1][j] = VB_CHARS.get(char, 0)
+    
+    try:
+        send_to_vestaboard(board)
+    except:
+        pass
+        
+    return jsonify({"status": "success"})
+
 def update_vestaword_board():
     board = [[0]*15 for _ in range(3)]
     
     if vestaword_state["status"] == "playing":
-        # Safely cap the header to 15 characters to prevent IndexError crashes
         current_player = vestaword_state["players"][vestaword_state["current_turn"]]["name"]
         header_str = f"{current_player} {len(vestaword_state['guesses']) + 1}/6"
         turn_text = header_str[:15].center(15)
@@ -453,7 +456,6 @@ def update_vestaword_board():
         for j, char in enumerate(turn_text): 
             board[0][j] = VB_CHARS.get(char, 0)
         
-        # Row 2 & 3: Last guess & Colors (if any)
         if len(vestaword_state["guesses"]) > 0:
             last_guess = vestaword_state["guesses"][-1]
             spaced_word = " ".join(last_guess["word"])
@@ -473,7 +475,6 @@ def update_vestaword_board():
     except Exception as e:
         print(f"Vesta-word board update failed: {e}")
 
-# 5. Process a Guess
 @app.route('/api/vestaword/guess', methods=['POST'])
 def vestaword_guess():
     if vestaword_state["status"] != "playing":
@@ -491,9 +492,10 @@ def vestaword_guess():
         return jsonify({"status": "error", "message": "Guess must be 5 letters."}), 400
 
     target = vestaword_state["target_word"]
-    colors = [69, 69, 69, 69, 69] 
+    colors = [0, 0, 0, 0, 0] 
     
     target_chars = list(target)
+    
     for i in range(5):
         if guess[i] == target[i]:
             colors[i] = 66
@@ -534,6 +536,7 @@ def vestaword_guess():
         vestaword_state["current_turn"] = (vestaword_state["current_turn"] + 1) % len(vestaword_state["players"])
         update_vestaword_board()
         return jsonify({"status": "success"})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
