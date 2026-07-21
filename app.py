@@ -548,8 +548,15 @@ def update_vestaword_board():
                 if colors[i] == 66:
                     correct_letters[i] = word[i]
                 elif colors[i] == 65:
-                    if word[i] not in yellow_letters[i] and len(yellow_letters[i]) < 3:
+                    if word[i] not in yellow_letters[i]:
                         yellow_letters[i].append(word[i])
+
+        # Find globally correctly guessed letters
+        global_correct = set(c for c in correct_letters if c is not None)
+        
+        # Filter yellow letters: remove if correctly guessed anywhere, and limit to 3 per slot
+        for i in range(5):
+            yellow_letters[i] = [c for c in yellow_letters[i] if c not in global_correct][:3]
                         
         # ROW 2: Red slots tracking correctly placed letters
         indices = [1, 4, 7, 10, 13]
@@ -562,10 +569,14 @@ def update_vestaword_board():
                 
         # ROW 3: Yellow characters formatted underneath their corresponding slots
         yellow_starts = [0, 3, 6, 9, 12]
+        
+        # Fill order prioritizing the middle slot first, then left slot, then right slot 
+        fill_offsets = [1, 0, 2] 
         for i in range(5):
             start = yellow_starts[i]
             for j, char in enumerate(yellow_letters[i]):
-                board[2][start + j] = VB_CHARS.get(char, 0)
+                if j < 3: # Ensuring we don't accidentally index out of bounds
+                    board[2][start + fill_offsets[j]] = VB_CHARS.get(char, 0)
     
     try:
         send_to_vestaboard(board)
@@ -619,20 +630,22 @@ def vestaword_guess():
         current_player["wins"] += 1
         
         board = [[0]*15 for _ in range(3)]
-        w_text = f"{current_player['name']} WINS!"[:15].center(15)
-        for j, char in enumerate(w_text): board[0][j] = VB_CHARS.get(char, 0)
         
-        padding = 3 
+        # Center the text safely inside the inner 13 columns to avoid edge overlap
+        w_text = f"{current_player['name']} WINS!"[:13].center(13)
+        for j, char in enumerate(w_text): 
+            board[0][j + 1] = VB_CHARS.get(char, 0)
+        
+        # Correctly guessed word in Row 2 (index 1) positioned exactly in the slots
+        indices = [1, 4, 7, 10, 13]
         for i in range(5):
-            col = padding + (i * 2)
+            col = indices[i]
             board[1][col] = VB_CHARS.get(guess[i], 0)
-            board[2][col] = 66
             
-        # Add perimeter (every other space on edge)
-        board[1][0] = 66
-        board[1][14] = 66
-        for col in range(0, 15, 2):
-            board[2][col] = 66
+        # Put "green" (66) in slot 1 (col 0) and slot 15 (col 14) of rows 1, 2, and 3
+        for row_idx in range(3):
+            board[row_idx][0] = 66
+            board[row_idx][14] = 66
             
         send_to_vestaboard(board)
         
