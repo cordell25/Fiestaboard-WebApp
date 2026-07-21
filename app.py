@@ -539,7 +539,7 @@ def update_vestaword_board():
             board[0][j] = VB_CHARS.get(char, 0)
             
         correct_letters = [None] * 5
-        yellow_letters = [[] for _ in range(5)]
+        yellow_letters_raw = [[] for _ in range(5)]
         
         for guess_obj in vestaword_state["guesses"]:
             word = guess_obj["word"]
@@ -548,15 +548,30 @@ def update_vestaword_board():
                 if colors[i] == 66:
                     correct_letters[i] = word[i]
                 elif colors[i] == 65:
-                    if word[i] not in yellow_letters[i]:
-                        yellow_letters[i].append(word[i])
+                    if word[i] not in yellow_letters_raw[i]:
+                        yellow_letters_raw[i].append(word[i])
 
         # Find globally correctly guessed letters
         global_correct = set(c for c in correct_letters if c is not None)
         
-        # Filter yellow letters: remove if correctly guessed anywhere, and limit to 3 per slot
+        # 1. Filter out yellow letters if they have been correctly guessed anywhere
         for i in range(5):
-            yellow_letters[i] = [c for c in yellow_letters[i] if c not in global_correct][:3]
+            yellow_letters_raw[i] = [c for c in yellow_letters_raw[i] if c not in global_correct]
+
+        # 2. Filter yellow letters based on open/closed slot rules
+        all_tracked_yellows = set(c for lst in yellow_letters_raw for c in lst)
+        for char in all_tracked_yellows:
+            guessed_slots = [i for i in range(5) if char in yellow_letters_raw[i]]
+            open_guessed_slots = [i for i in guessed_slots if correct_letters[i] is None]
+            
+            # If guessed in at least one open slot, remove it from all closed slots
+            if len(open_guessed_slots) > 0:
+                for i in guessed_slots:
+                    if correct_letters[i] is not None:
+                        yellow_letters_raw[i].remove(char)
+                        
+        # 3. Apply the 3-letter limit per slot
+        yellow_letters = [lst[:3] for lst in yellow_letters_raw]
                         
         # ROW 2: Red slots tracking correctly placed letters
         indices = [1, 4, 7, 10, 13]
