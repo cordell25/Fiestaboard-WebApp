@@ -1,14 +1,48 @@
-# Fiestaboard-WebApp
-A self hosted website to interact with a Vestaboard as a live scoreboard
+# 🎉 FiestaBoard WebApp
 
-A lightweight, self-hosted web application designed to run on a Raspberry Pi. It provides a mobile-friendly UI to track player scores and instantly updates your Vestaboard in real-time using the Local API. 
+Welcome to the **FiestaBoard WebApp**! This is a web-based party game and digital board game companion application. Whether you are hosting a game night or just looking for some quick interactive puzzles, FiestaBoard includes built-in games and utilities to keep the fun going.
 
-## Features
-* **Real-time Scoring:** Tap to add/subtract points or edit scores directly.
-* **Multi-Board Support:** Dynamically adjusts layouts for Vestaboard Standard (up to 6 players) and Vestaboard Note (up to 3 players).
-* **Custom Colors & Titles:** Assign specific Vestaboard color tiles to players and display a custom game title.
-* **Fiestaboard Integration:** Easily pause/resume your Fiestaboard server during gameplay so it doesn't overwrite your scores.
-* **Browser-Based Config:** Set your IP and API keys directly from the web UI (no terminal editing required).
+## ✨ Features
+
+Based on the core application files, FiestaBoard currently features[cite: 1]:
+*   **The Wheel**: A category-based word puzzle game[cite: 1]. Guess words and phrases across multiple categories including:
+    *   Food & Drink[cite: 1]
+    *   People[cite: 1]
+    *   Places[cite: 1]
+    *   Things[cite: 1]
+    *   Phrases[cite: 1]
+    *   Actions ("Doing")[cite: 1]
+*   **VestaWord**: A 5-letter daily word guessing game (Wordle-style) using an extensive JSON dictionary[cite: 1].
+*   **Live Scoreboard**: Easily track points and player standings during your game nights[cite: 1].
+*   **Game Timer**: A built-in timer utility to keep turns moving and the pressure on[cite: 1].
+
+*   **Browser-Based Config:** Set your IP and API keys directly from the web UI (no terminal editing required).
+*   **Fiestaboard Integration:** Easily pause/resume your Fiestaboard server during gameplay so it doesn't overwrite.
+
+## 📂 Project Structure
+
+```text
+Fiestaboard-WebApp/
+│
+├── app.py                 # Main application application runner
+├── data/                  # Game dictionaries and puzzle data
+│   ├── 5_letter_words.json
+│   ├── doing.json
+│   ├── food_drink.json
+│   ├── person.json
+│   ├── phrase.json
+│   ├── place.json
+│   └── things.json
+├── screenshots/           # Application screenshots for reference
+├── templates/             # HTML templates for the web interface
+│   ├── home.html
+│   ├── index.html
+│   ├── scoreboard.html
+│   ├── timer.html
+│   ├── vestaword.html
+│   └── wheel.html
+├── LICENSE                # Project licensing details
+└── README.md              # Project documentation
 
 <img width="200" alt="Scoreboard Setup" src="./screenshots/IMG_2600.jpeg" /> <img width="200" alt="Settings" src="./screenshots/IMG_2599.jpeg" /> <img width="200" alt="Player Details" src="./screenshots/IMG_2601.jpeg" /> <img width="200" alt="Score Entry" src="./screenshots/IMG_2604.jpeg" />
 
@@ -56,7 +90,7 @@ Enter your Vestaboard IP, Local API Key, and Fiestaboard UUID (optional). Save t
 Go back to your terminal and press Ctrl+C to stop the server.
 
 **Running as a Background Service (Recommended)**
-To keep the scoreboard running 24/7 and automatically start when the Pi reboots, set it up as a system service.
+To keep the app running 24/7 and automatically start when the Pi reboots, set it up as a system service.
 
 **1. Create the service file:**
 ```
