@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wheel of Fortune</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f9; color: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f9; color: #333; touch-action: manipulation; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: center; }
         
         .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
@@ -16,8 +16,8 @@
         .pause-btn:disabled { opacity: 0.3; cursor: not-allowed; background: #6c757d !important; }
         .pause-btn:hover:not(:disabled) { opacity: 0.9; }
         
-        select { width: 100%; padding: 12px; margin: 15px 0 25px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; background-color: white; }
-
+        input[type="text"], select { width: 100%; padding: 12px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; }
+        
         .btn-primary, .btn-action {
             background-color: #007bff; border: none; color: white; padding: 15px 32px; text-align: center;
             text-decoration: none; display: inline-block; font-size: 16px; margin: 10px; cursor: pointer;
@@ -28,12 +28,21 @@
         
         .btn-action { width: auto; flex: 1; min-width: 120px; padding: 12px 15px; margin: 5px; }
         .btn-action.solve { background-color: #dc3545; }
-        .btn-action.auto { background-color: #6f42c1; } /* Purple for Auto-Solve */
         .btn-action.new { background-color: #28a745; }
         
-        #game-board { display: none; }
+        .player-list { list-style: none; padding: 0; margin: 15px 0; background: #f8f9fa; border-radius: 8px; }
+        .player-list li { padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+        .player-list li:last-child { border-bottom: none; }
+        .score-badge { background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 14px; }
         
-        .category-display { color: #007bff; text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: bold; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .turn-banner { padding: 10px; font-size: 18px; font-weight: bold; border-radius: 8px; margin-bottom: 10px; transition: background-color 0.3s; }
+        .turn-active { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .turn-waiting { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .event-banner { padding: 10px; font-size: 16px; font-weight: bold; border-radius: 8px; margin-bottom: 20px; background-color: #cce5ff; color: #004085; border: 1px solid #b8daff; }
+
+        #game-board, #lobby-waiting { display: none; }
+        
+        .category-display { color: #007bff; text-align: center; margin-bottom: 15px; font-size: 20px; font-weight: bold; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
 
         .keyboard-section { margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 10px; border: 1px solid #eee; }
         .keyboard-section h3 { margin-top: 0; color: #666; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
@@ -49,46 +58,24 @@
         .key:disabled { cursor: not-allowed; box-shadow: none; }
         
         .controls { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 25px; }
+
         /* AUTOMATIC DARK MODE */
         @media (prefers-color-scheme: dark) {
             body { background: #121212; color: #e0e0e0; }
             .card { background: #1e1e1e; box-shadow: 0 4px 6px rgba(0,0,0,0.4); }
-            
             h1, h2, h3, .app-title { color: #f4f4f9; }
             .subtitle, .app-desc, label, .helper-text { color: #aaa !important; }
-            
-            /* Override hardcoded inline grey/black styles */
-            p[style*="color: #555"], p[style*="color: #666"], h2[style*="color: #555"], h3[style*="color: #666"] { color: #aaa !important; }
-            
-            /* Hub Home Cards */
-            .app-card { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
-            .app-card:hover { box-shadow: 0 6px 12px rgba(0,0,0,0.5); border-color: #007bff; }
-            
-            /* Inputs & Dropdowns */
-            input[type="text"], input[type="password"], input[type="number"], select { 
-                background-color: #2c2c2c; color: #fff; border: 1px solid #444; 
-            }
-            input[type="number"].score-input, input[type="number"].timer-input {
-                background-color: #2c2c2c; color: #fff; border-color: #444;
-            }
+            p[style*="color: #666"], h3[style*="color: #666"] { color: #aaa !important; }
+            input[type="text"], select { background-color: #2c2c2c; color: #fff; border: 1px solid #444; }
             select:disabled { background-color: #222; color: #666; }
-            
-            /* App-Specific Containers */
-            .iteration-box, .keyboard-section, .player-list { background: #2a2a2a; border-color: #444; }
-            .player-row, .player-list li { border-bottom: 1px solid #444; }
-            
-            /* Keyboards */
+            .keyboard-section, .player-list { background: #2a2a2a; border-color: #444; }
+            .player-list li { border-bottom: 1px solid #444; }
             .key { background-color: #444; color: #f4f4f9; }
             .key:disabled { opacity: 0.4; }
-            
-            /* Vesta-Word Turn Banners */
             .turn-waiting { background-color: #3a2e00; color: #ffdb4d; border-color: #665700; }
             .turn-active { background-color: #003311; color: #4dff88; border-color: #006622; }
-            
+            .event-banner { background-color: #002752; color: #cce5ff; border-color: #004085; }
             hr { background: #444 !important; }
-            
-            /* Make incorrect black flaps stand out against dark mode card */
-            .color-0 { background-color: #000; border: 1px solid #333; } 
         }
     </style>
 </head>
@@ -102,22 +89,44 @@
         </div>
 
         <div id="start-screen">
-            <p style="color: #666; font-weight: bold;">Select a Category:</p>
-            <select id="category-select">
-                <option value="random">🎲 Random Category</option>
-                {% for cat in categories %}
-                    <option value="{{ cat.file }}">{{ cat.name }}</option>
-                {% endfor %}
-            </select>
-            <button id="start-btn" class="btn-primary" onclick="startGame()">Start Game</button>
-            <p id="setup-status" style="color: red; font-size: 14px; margin-top: 10px;"></p>
+            <h3>Join Game</h3>
+            <input type="text" id="player-name" placeholder="Enter your name" maxlength="10">
+            <button class="btn-primary" id="join-btn" onclick="joinGame()">Join Lobby</button>
+            <p id="error-msg" style="color: red; margin-top: 10px;"></p>
+            
+            <div id="lobby-waiting">
+                <hr style="margin: 20px 0; border: 1px solid #eee;">
+                <p style="color: #666; font-weight: bold;">Select a Category:</p>
+                <select id="category-select">
+                    <option value="random">🎲 Random Category</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.file }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+                
+                <h3 style="color: #666; margin-top: 15px;">Players in Lobby</h3>
+                <ul class="player-list" id="player-list-ul"></ul>
+                <button id="start-btn" class="btn-primary" style="background-color: #28a745;" onclick="startGame()">Start Game</button>
+                <p id="setup-status" style="color: red; font-size: 14px; margin-top: 10px;"></p>
+            </div>
         </div>
 
         <div id="game-board">
+            <div id="turn-banner" class="turn-banner turn-waiting">Waiting for game to start...</div>
+            <div id="event-banner" class="event-banner">Welcome to Wheel of Fortune!</div>
+            
+            <ul class="player-list" id="game-player-list" style="margin-bottom: 20px;"></ul>
+            
             <div id="current-category" class="category-display">CATEGORY</div>
             
+            <!-- Dynamic Choice Action Container -->
+            <div id="choice-container" style="display: none; justify-content: center; gap: 15px; margin: 15px 0;">
+                <button class="btn-action" style="background-color: #6f42c1; color: white;" onclick="sendAction('spin')">🎡 Spin Wheel</button>
+                <button id="btn-buy-vowel" class="btn-action" style="background-color: #17a2b8; color: white;" onclick="sendAction('buy_vowel')">🅰️ Buy Vowel ($250)</button>
+            </div>
+            
             <div class="keyboard-section">
-                <h3>Vowels</h3>
+                <h3>Vowels ($250)</h3>
                 <div class="keyboard" id="vowels"></div>
             </div>
             <div class="keyboard-section">
@@ -126,20 +135,25 @@
             </div>
             
             <div class="controls">
-                <button id="auto-solve-btn" class="btn-action auto" onclick="startAutoSolve()">Auto-Solve</button>
-                <button class="btn-action solve" onclick="solveGame()">Solve Now</button>
-                <button class="btn-action new" onclick="location.reload()">End / New Game</button>
+                <button id="solve-btn" class="btn-action solve" onclick="solveGame()">Solve Puzzle</button>
+                <button class="btn-action new" onclick="endGame()">End / New Game</button>
             </div>
         </div>
     </div>
 
     <script>
+        let myPlayerId = null;
+        let myName = "";
         let activeBoardUuid = '';
         let isAutomationPaused = false;
-        let autoSolveInterval;
+        let currentTurnId = -1;
+        let gameAnswer = ""; 
+        let myCurrentScore = 0;
 
         document.addEventListener('DOMContentLoaded', () => {
             initApp();
+            buildKeyboard();
+            setInterval(pollGameState, 1000); 
         });
 
         // --- PAUSE AUTOMATION LOGIC ---
@@ -219,7 +233,30 @@
             }
         }
 
-        // --- WHEEL OF FORTUNE LOGIC ---
+        // --- MULTIPLAYER LOBBY LOGIC ---
+        function joinGame() {
+            myName = document.getElementById('player-name').value.trim() || "Player";
+            document.getElementById('join-btn').disabled = true;
+            
+            fetch('/api/wheel/join', {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: myName })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    myPlayerId = data.player_id;
+                    document.getElementById('join-btn').style.display = 'none';
+                    document.getElementById('player-name').disabled = true;
+                    document.getElementById('lobby-waiting').style.display = 'block';
+                } else {
+                    document.getElementById('error-msg').innerText = data.message;
+                    document.getElementById('join-btn').disabled = false;
+                }
+            });
+        }
+
         function startGame() {
             const cat = document.getElementById('category-select').value;
             const startBtn = document.getElementById('start-btn');
@@ -232,12 +269,7 @@
             })
             .then(res => res.json())
             .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('start-screen').style.display = 'none';
-                    document.getElementById('game-board').style.display = 'block';
-                    document.getElementById('current-category').innerText = data.category;
-                    buildKeyboard();
-                } else {
+                if (data.status !== 'success') {
                     document.getElementById('setup-status').innerText = "Error: " + data.message;
                     startBtn.disabled = false;
                 }
@@ -248,61 +280,184 @@
             });
         }
 
-        function solveGame() {
-            if (autoSolveInterval) clearInterval(autoSolveInterval);
-            const keys = document.querySelectorAll('.key');
-            keys.forEach(key => key.disabled = true);
-            document.getElementById('auto-solve-btn').disabled = true;
-            fetch('/api/wheel/solve', { method: "POST" });
+        function endGame() {
+            if(confirm("End the game and return everyone to the lobby?")) {
+                fetch('/api/wheel/end', { method: 'POST' });
+            }
         }
         
-        function startAutoSolve() {
-            // Disable buttons so the user can't interfere while it auto-plays
-            const keys = document.querySelectorAll('.key');
-            keys.forEach(key => key.disabled = true);
-            document.getElementById('auto-solve-btn').disabled = true;
-            
-            // Reveal first letter immediately, then loop every 14s
-            revealRandomLetter();
-            autoSolveInterval = setInterval(revealRandomLetter, 14000);
+        // --- TURN ACTION LOGIC ---
+        function sendAction(action) {
+            document.getElementById('choice-container').style.display = 'none';
+            fetch('/api/wheel/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: myPlayerId, action: action })
+            });
         }
-        
-        function revealRandomLetter() {
-            fetch('/api/wheel/reveal_random', { method: "POST" })
+
+        // --- GAME PLAY LOGIC ---
+        function pollGameState() {
+            fetch('/api/wheel/state')
                 .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        // Find the button for the newly revealed letter and turn it green
-                        const keys = document.querySelectorAll('.key');
-                        keys.forEach(btn => {
-                            if (btn.innerText === data.letter) {
-                                btn.style.backgroundColor = '#28a745';
-                                btn.style.color = '#fff';
-                            }
+                .then(state => {
+                    if(state.status === 'lobby') {
+                        document.getElementById('game-board').style.display = 'none';
+                        document.getElementById('start-screen').style.display = 'block';
+                        
+                        if (myPlayerId && !state.players.find(p => p.id === myPlayerId)) {
+                            myPlayerId = null;
+                            document.getElementById('join-btn').style.display = 'block';
+                            document.getElementById('join-btn').disabled = false;
+                            document.getElementById('player-name').disabled = false;
+                            document.getElementById('lobby-waiting').style.display = 'none';
+                        }
+                        
+                        const ul = document.getElementById('player-list-ul');
+                        ul.innerHTML = '';
+                        state.players.forEach(p => {
+                            const isMe = p.id === myPlayerId ? "(You)" : "";
+                            ul.innerHTML += `<li><span>${p.name} ${isMe}</span></li>`;
                         });
-                    } else if (data.status === 'complete') {
-                        clearInterval(autoSolveInterval);
+                        
+                        document.getElementById('start-btn').disabled = state.players.length === 0;
+                    }
+                    else if(state.status === 'playing' || state.status === 'game_over') {
+                        document.getElementById('start-screen').style.display = 'none';
+                        document.getElementById('game-board').style.display = 'block';
+                        document.getElementById('current-category').innerText = state.category_name;
+                        
+                        gameAnswer = state.answer; // Cache for instant UI verification
+                        
+                        const me = state.players.find(p => p.id === myPlayerId);
+                        if(me) myCurrentScore = me.score;
+                        
+                        renderGameState(state);
                     }
                 });
+        }
+
+        function renderGameState(state) {
+            const banner = document.getElementById('turn-banner');
+            const eventBanner = document.getElementById('event-banner');
+            const keys = document.querySelectorAll('.key');
+            const solveBtn = document.getElementById('solve-btn');
+            const vowelsList = ['A', 'E', 'I', 'O', 'U'];
+            
+            // Draw Player Scoreboard
+            const scoreUl = document.getElementById('game-player-list');
+            scoreUl.innerHTML = '';
+            state.players.forEach((p, index) => {
+                const isMe = p.id === myPlayerId ? "(You)" : "";
+                const isTurn = index === state.current_turn ? "👉 " : "";
+                scoreUl.innerHTML += `<li><span>${isTurn}${p.name} ${isMe}</span> <span class="score-badge">$${p.score}</span></li>`;
+            });
+            
+            eventBanner.innerText = state.message;
+            
+            // Sync Keyboard Visuals (Reset all keys, then enforce red/green based on history)
+            keys.forEach(k => {
+                const letter = k.innerText;
+                
+                if (state.revealed_letters.includes(letter)) {
+                    k.disabled = true;
+                    if (gameAnswer.includes(letter)) {
+                        k.style.backgroundColor = '#28a745';
+                        k.style.color = '#fff';
+                    } else {
+                        k.style.backgroundColor = '#dc3545';
+                        k.style.color = '#fff';
+                    }
+                } else {
+                    k.style.backgroundColor = '';
+                    k.style.color = '';
+                }
+            });
+
+            if (state.status === 'game_over') {
+                banner.className = 'turn-banner turn-active';
+                banner.innerText = "Game Over!";
+                keys.forEach(k => k.disabled = true);
+                solveBtn.disabled = true;
+                document.getElementById('choice-container').style.display = 'none';
+            } else {
+                const currentPlayer = state.players[state.current_turn];
+                const isMyTurn = (currentPlayer && currentPlayer.id === myPlayerId);
+                
+                if (isMyTurn) {
+                    banner.className = 'turn-banner turn-active';
+                    banner.innerText = "IT'S YOUR TURN!";
+                    solveBtn.disabled = false;
+                    
+                    if (state.phase === "choice") {
+                        document.getElementById('choice-container').style.display = 'flex';
+                        
+                        // Prevent users from buying a vowel if none are left
+                        const remainingVowels = vowelsList.filter(v => !state.revealed_letters.includes(v));
+                        const buyBtn = document.getElementById('btn-buy-vowel');
+                        
+                        if (remainingVowels.length === 0) {
+                            buyBtn.disabled = true;
+                            buyBtn.innerText = "🅰️ No Vowels Left";
+                        } else {
+                            buyBtn.disabled = false;
+                            buyBtn.innerText = "🅰️ Buy Vowel ($250)";
+                        }
+                        
+                        keys.forEach(k => k.disabled = true); 
+                    } else if (state.phase === "spin") {
+                        document.getElementById('choice-container').style.display = 'none';
+                        keys.forEach(k => {
+                            const letter = k.innerText;
+                            if (!state.revealed_letters.includes(letter)) {
+                                k.disabled = vowelsList.includes(letter); 
+                            }
+                        });
+                    } else if (state.phase === "vowel") {
+                        document.getElementById('choice-container').style.display = 'none';
+                        keys.forEach(k => {
+                            const letter = k.innerText;
+                            if (!state.revealed_letters.includes(letter)) {
+                                k.disabled = !vowelsList.includes(letter); 
+                            }
+                        });
+                    }
+                } else {
+                    banner.className = 'turn-banner turn-waiting';
+                    banner.innerText = `Waiting for ${currentPlayer ? currentPlayer.name : 'someone'}...`;
+                    keys.forEach(k => k.disabled = true);
+                    solveBtn.disabled = true;
+                    document.getElementById('choice-container').style.display = 'none';
+                }
+            }
+        }
+
+        function solveGame() {
+            if(confirm("Solve the puzzle to claim the victory?")) {
+                fetch('/api/wheel/solve', { 
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ player_id: myPlayerId })
+                });
+            }
         }
 
         function guessLetter(letter, buttonElement) {
             buttonElement.disabled = true;
             
+            // Instant UI Color feedback while backend processes!
+            if (gameAnswer.includes(letter)) {
+                buttonElement.style.backgroundColor = '#28a745'; 
+                buttonElement.style.color = '#fff';
+            } else {
+                buttonElement.style.backgroundColor = '#dc3545'; 
+                buttonElement.style.color = '#fff';
+            }
+            
             fetch('/api/wheel/guess', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ letter: letter })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.found) {
-                    buttonElement.style.backgroundColor = '#28a745'; 
-                    buttonElement.style.color = '#fff';
-                } else {
-                    buttonElement.style.backgroundColor = '#dc3545'; 
-                    buttonElement.style.color = '#fff';
-                }
+                body: JSON.stringify({ player_id: myPlayerId, letter: letter })
             });
         }
 
