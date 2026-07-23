@@ -16,7 +16,8 @@
         .pause-btn:disabled { opacity: 0.3; cursor: not-allowed; background: #6c757d !important; }
         .pause-btn:hover:not(:disabled) { opacity: 0.9; }
         
-        input[type="text"], select { width: 100%; padding: 12px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; }
+        input[type="text"], input[type="number"], select { width: 100%; padding: 12px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; }
+        label { font-weight: bold; font-size: 14px; color: #555; display: block; text-align: left; margin-top: 10px; }
         
         .btn-primary, .btn-action {
             background-color: #007bff; border: none; color: white; padding: 15px 32px; text-align: center;
@@ -33,12 +34,46 @@
         .player-list { list-style: none; padding: 0; margin: 15px 0; background: #f8f9fa; border-radius: 8px; }
         .player-list li { padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
         .player-list li:last-child { border-bottom: none; }
-        .score-badge { background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 14px; }
+        
+        .score-badge { background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 14px; margin-left: 5px; }
+        .bank-badge { background: #ffc107; color: #856404; padding: 2px 8px; border-radius: 12px; font-size: 14px; margin-left: 5px; }
+        .eliminated { text-decoration: line-through; opacity: 0.5; }
         
         .turn-banner { padding: 10px; font-size: 18px; font-weight: bold; border-radius: 8px; margin-bottom: 10px; transition: background-color 0.3s; }
         .turn-active { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .turn-waiting { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
         .event-banner { padding: 10px; font-size: 16px; font-weight: bold; border-radius: 8px; margin-bottom: 20px; background-color: #cce5ff; color: #004085; border: 1px solid #b8daff; }
+
+        .timer-display { font-size: 32px; font-weight: bold; color: #dc3545; margin: 10px 0; }
+
+        /* Zoomed Wheel Wedge Style */
+        .wheel-wedge {
+            background: #ffcc00; 
+            border: 8px solid #333;
+            border-radius: 10px 10px 50px 50px;
+            padding: 30px 20px;
+            font-size: 36px;
+            font-weight: 900;
+            color: #333;
+            text-shadow: 2px 2px 0 #fff;
+            margin: 20px auto;
+            width: fit-content;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            position: relative;
+            text-transform: uppercase;
+        }
+        .wheel-wedge::before {
+            content: "▼";
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #dc3545;
+            font-size: 40px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .wedge-bankrupt { background: #000; color: #fff; text-shadow: none; border-color: #fff; }
+        .wedge-lose { background: #fff; color: #000; text-shadow: 1px 1px 0 #ccc; }
 
         #game-board, #lobby-waiting { display: none; }
         
@@ -66,7 +101,7 @@
             h1, h2, h3, .app-title { color: #f4f4f9; }
             .subtitle, .app-desc, label, .helper-text { color: #aaa !important; }
             p[style*="color: #666"], h3[style*="color: #666"] { color: #aaa !important; }
-            input[type="text"], select { background-color: #2c2c2c; color: #fff; border: 1px solid #444; }
+            input[type="text"], input[type="number"], select { background-color: #2c2c2c; color: #fff; border: 1px solid #444; }
             select:disabled { background-color: #222; color: #666; }
             .keyboard-section, .player-list { background: #2a2a2a; border-color: #444; }
             .player-list li { border-bottom: 1px solid #444; }
@@ -96,7 +131,11 @@
             
             <div id="lobby-waiting">
                 <hr style="margin: 20px 0; border: 1px solid #eee;">
-                <p style="color: #666; font-weight: bold;">Select a Category:</p>
+                
+                <label>Turn Timer (Seconds)</label>
+                <input type="number" id="setting-timer-sec" value="12" min="5" max="60">
+
+                <label>Select a Category</label>
                 <select id="category-select">
                     <option value="random">🎲 Random Category</option>
                     {% for cat in categories %}
@@ -113,30 +152,52 @@
 
         <div id="game-board">
             <div id="turn-banner" class="turn-banner turn-waiting">Waiting for game to start...</div>
+            <div id="turn-timer-display" class="timer-display">12</div>
             <div id="event-banner" class="event-banner">Welcome to Wheel of Fortune!</div>
             
             <ul class="player-list" id="game-player-list" style="margin-bottom: 20px;"></ul>
             
             <div id="current-category" class="category-display">CATEGORY</div>
             
+            <!-- Graphic Wedge Container -->
+            <div id="wedge-container" style="display: none;">
+                <div id="wheel-wedge" class="wheel-wedge"></div>
+            </div>
+
             <!-- Dynamic Choice Action Container -->
             <div id="choice-container" style="display: none; justify-content: center; gap: 15px; margin: 15px 0;">
                 <button class="btn-action" style="background-color: #6f42c1; color: white;" onclick="sendAction('spin')">🎡 Spin Wheel</button>
                 <button id="btn-buy-vowel" class="btn-action" style="background-color: #17a2b8; color: white;" onclick="sendAction('buy_vowel')">🅰️ Buy Vowel ($250)</button>
             </div>
             
-            <div class="keyboard-section">
+            <!-- Solve Input Container -->
+            <div id="solve-container" style="display: none; margin: 15px 0; background: #e9ecef; padding: 15px; border-radius: 8px;">
+                <label>Type your answer:</label>
+                <input type="text" id="solve-input" placeholder="Type answer here..." style="font-weight: bold; font-size: 20px; text-transform: uppercase;">
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-action solve" onclick="submitSolve()">Confirm Solve</button>
+                    <button class="btn-action" style="background-color: #6c757d;" onclick="cancelSolve()">Cancel</button>
+                </div>
+            </div>
+
+            <div class="keyboard-section" id="keyboard-vowels-section">
                 <h3>Vowels ($250)</h3>
                 <div class="keyboard" id="vowels"></div>
             </div>
-            <div class="keyboard-section">
+            <div class="keyboard-section" id="keyboard-consonants-section">
                 <h3>Consonants</h3>
                 <div class="keyboard" id="consonants"></div>
             </div>
             
-            <div class="controls">
-                <button id="solve-btn" class="btn-action solve" onclick="solveGame()">Solve Puzzle</button>
-                <button class="btn-action new" onclick="endGame()">End / New Game</button>
+            <div class="controls" id="game-controls">
+                <button id="solve-btn" class="btn-action solve" onclick="openSolveUI()">Solve Puzzle</button>
+                <button class="btn-action" style="background-color: #dc3545;" onclick="endGame()">Quit Game</button>
+            </div>
+            
+            <!-- Post-Game Controls -->
+            <div class="controls" id="post-game-controls" style="display: none;">
+                <button class="btn-action new" style="font-size: 20px;" onclick="playAgain()">🔄 Play Again</button>
+                <button class="btn-action" style="background-color: #dc3545;" onclick="endGame()">End Game & Clear</button>
             </div>
         </div>
     </div>
@@ -146,9 +207,13 @@
         let myName = "";
         let activeBoardUuid = '';
         let isAutomationPaused = false;
-        let currentTurnId = -1;
+        
         let gameAnswer = ""; 
         let myCurrentScore = 0;
+        
+        let currentTurnStateId = ""; 
+        let turnTimerInterval;
+        let secondsRemaining = 12;
 
         document.addEventListener('DOMContentLoaded', () => {
             initApp();
@@ -259,13 +324,14 @@
 
         function startGame() {
             const cat = document.getElementById('category-select').value;
+            const tSec = document.getElementById('setting-timer-sec').value;
             const startBtn = document.getElementById('start-btn');
             startBtn.disabled = true;
             
             fetch('/api/wheel/start', {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ category: cat })
+                body: JSON.stringify({ category: cat, timer_seconds: tSec })
             })
             .then(res => res.json())
             .then(data => {
@@ -280,8 +346,12 @@
             });
         }
 
+        function playAgain() {
+            fetch('/api/wheel/reset', { method: 'POST' });
+        }
+
         function endGame() {
-            if(confirm("End the game and return everyone to the lobby?")) {
+            if(confirm("Hard end the game and clear all players?")) {
                 fetch('/api/wheel/end', { method: 'POST' });
             }
         }
@@ -293,6 +363,44 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ player_id: myPlayerId, action: action })
+            });
+        }
+
+        // --- SOLVE LOGIC ---
+        function openSolveUI() {
+            document.getElementById('solve-container').style.display = 'block';
+            document.getElementById('keyboard-vowels-section').style.display = 'none';
+            document.getElementById('keyboard-consonants-section').style.display = 'none';
+            document.getElementById('game-controls').style.display = 'none';
+            document.getElementById('choice-container').style.display = 'none';
+            document.getElementById('wedge-container').style.display = 'none';
+        }
+
+        function cancelSolve() {
+            document.getElementById('solve-container').style.display = 'none';
+            document.getElementById('solve-input').value = "";
+            document.getElementById('keyboard-vowels-section').style.display = 'block';
+            document.getElementById('keyboard-consonants-section').style.display = 'block';
+            document.getElementById('game-controls').style.display = 'flex';
+        }
+
+        function submitSolve() {
+            const guessInput = document.getElementById('solve-input').value;
+            if(!guessInput) return;
+            
+            cancelSolve(); // hide UI
+            
+            fetch('/api/wheel/solve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: myPlayerId, guess: guessInput })
+            });
+        }
+
+        function forceTimeout() {
+            fetch('/api/wheel/timeout', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: myPlayerId })
             });
         }
 
@@ -317,10 +425,12 @@
                         ul.innerHTML = '';
                         state.players.forEach(p => {
                             const isMe = p.id === myPlayerId ? "(You)" : "";
-                            ul.innerHTML += `<li><span>${p.name} ${isMe}</span></li>`;
+                            const bankDisplay = p.bank_score > 0 ? `<span class="bank-badge">Bank: $${p.bank_score}</span>` : '';
+                            ul.innerHTML += `<li><span>${p.name} ${isMe}</span> ${bankDisplay}</li>`;
                         });
                         
                         document.getElementById('start-btn').disabled = state.players.length === 0;
+                        clearInterval(turnTimerInterval);
                     }
                     else if(state.status === 'playing' || state.status === 'game_over') {
                         document.getElementById('start-screen').style.display = 'none';
@@ -342,23 +452,75 @@
             const eventBanner = document.getElementById('event-banner');
             const keys = document.querySelectorAll('.key');
             const solveBtn = document.getElementById('solve-btn');
+            const timerDisplay = document.getElementById('turn-timer-display');
             const vowelsList = ['A', 'E', 'I', 'O', 'U'];
+            
+            // Timer Reset Logic based on Turn/Phase shifts
+            const newStateId = `${state.turn_id}-${state.phase}`;
+            if (currentTurnStateId !== newStateId) {
+                currentTurnStateId = newStateId;
+                clearInterval(turnTimerInterval);
+                
+                if (state.status === 'playing') {
+                    secondsRemaining = state.timer_seconds || 12;
+                    timerDisplay.innerText = secondsRemaining;
+                    timerDisplay.style.display = 'block';
+                    
+                    turnTimerInterval = setInterval(() => {
+                        secondsRemaining--;
+                        timerDisplay.innerText = secondsRemaining;
+                        if (secondsRemaining <= 0) {
+                            clearInterval(turnTimerInterval);
+                            const currentPlayer = state.players[state.current_turn];
+                            if (currentPlayer && currentPlayer.id === myPlayerId) {
+                                forceTimeout();
+                            }
+                        }
+                    }, 1000);
+                } else {
+                    timerDisplay.style.display = 'none';
+                }
+            }
             
             // Draw Player Scoreboard
             const scoreUl = document.getElementById('game-player-list');
             scoreUl.innerHTML = '';
             state.players.forEach((p, index) => {
                 const isMe = p.id === myPlayerId ? "(You)" : "";
-                const isTurn = index === state.current_turn ? "👉 " : "";
-                scoreUl.innerHTML += `<li><span>${isTurn}${p.name} ${isMe}</span> <span class="score-badge">$${p.score}</span></li>`;
+                const isTurn = index === state.current_turn && !p.eliminated ? "👉 " : "";
+                const elimClass = p.eliminated ? "eliminated" : "";
+                scoreUl.innerHTML += `<li class="${elimClass}"><span>${isTurn}${p.name} ${isMe}</span> 
+                    <div>
+                        <span class="score-badge">$${p.score}</span>
+                        <span class="bank-badge">Bank: $${p.bank_score}</span>
+                    </div>
+                </li>`;
             });
             
             eventBanner.innerText = state.message;
             
-            // Sync Keyboard Visuals (Reset all keys, then enforce red/green based on history)
+            // Wedge Graphic Rendering
+            const wedgeContainer = document.getElementById('wedge-container');
+            const wedge = document.getElementById('wheel-wedge');
+            if (state.phase === "spin" && state.spin_value && state.status !== 'game_over') {
+                wedgeContainer.style.display = 'block';
+                if (state.spin_value === "BANKRUPT") {
+                    wedge.className = "wheel-wedge wedge-bankrupt";
+                    wedge.innerText = "BANKRUPT";
+                } else if (state.spin_value === "LOSE A TURN") {
+                    wedge.className = "wheel-wedge wedge-lose";
+                    wedge.innerText = "LOSE A TURN";
+                } else {
+                    wedge.className = "wheel-wedge";
+                    wedge.innerText = `$${state.spin_value}`;
+                }
+            } else {
+                wedgeContainer.style.display = 'none';
+            }
+            
+            // Sync Keyboard Visuals
             keys.forEach(k => {
                 const letter = k.innerText;
-                
                 if (state.revealed_letters.includes(letter)) {
                     k.disabled = true;
                     if (gameAnswer.includes(letter)) {
@@ -378,9 +540,18 @@
                 banner.className = 'turn-banner turn-active';
                 banner.innerText = "Game Over!";
                 keys.forEach(k => k.disabled = true);
-                solveBtn.disabled = true;
+                
+                document.getElementById('solve-container').style.display = 'none';
                 document.getElementById('choice-container').style.display = 'none';
+                document.getElementById('game-controls').style.display = 'none';
+                document.getElementById('post-game-controls').style.display = 'flex';
+                document.getElementById('keyboard-vowels-section').style.display = 'block';
+                document.getElementById('keyboard-consonants-section').style.display = 'block';
+                
             } else {
+                document.getElementById('game-controls').style.display = 'flex';
+                document.getElementById('post-game-controls').style.display = 'none';
+                
                 const currentPlayer = state.players[state.current_turn];
                 const isMyTurn = (currentPlayer && currentPlayer.id === myPlayerId);
                 
@@ -391,8 +562,6 @@
                     
                     if (state.phase === "choice") {
                         document.getElementById('choice-container').style.display = 'flex';
-                        
-                        // Prevent users from buying a vowel if none are left
                         const remainingVowels = vowelsList.filter(v => !state.revealed_letters.includes(v));
                         const buyBtn = document.getElementById('btn-buy-vowel');
                         
@@ -403,7 +572,6 @@
                             buyBtn.disabled = false;
                             buyBtn.innerText = "🅰️ Buy Vowel ($250)";
                         }
-                        
                         keys.forEach(k => k.disabled = true); 
                     } else if (state.phase === "spin") {
                         document.getElementById('choice-container').style.display = 'none';
@@ -428,24 +596,15 @@
                     keys.forEach(k => k.disabled = true);
                     solveBtn.disabled = true;
                     document.getElementById('choice-container').style.display = 'none';
+                    // Cancel solve UI if it was open when time ran out
+                    cancelSolve();
                 }
-            }
-        }
-
-        function solveGame() {
-            if(confirm("Solve the puzzle to claim the victory?")) {
-                fetch('/api/wheel/solve', { 
-                    method: "POST",
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ player_id: myPlayerId })
-                });
             }
         }
 
         function guessLetter(letter, buttonElement) {
             buttonElement.disabled = true;
             
-            // Instant UI Color feedback while backend processes!
             if (gameAnswer.includes(letter)) {
                 buttonElement.style.backgroundColor = '#28a745'; 
                 buttonElement.style.color = '#fff';
